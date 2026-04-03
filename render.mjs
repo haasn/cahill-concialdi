@@ -283,8 +283,15 @@ function drawMapArea(area, idx) {
   for (let lat = area.swCorner.lat; lat < area.neCorner.lat; lat++) {
     for (let lon = startLon; lon < endLon; lon++) {
 
-      const maskedLonW = Math.max(lon,     area.swCorner.lon);
-      const maskedLonE = Math.min(lon + 1, area.neCorner.lon + antiMeridianAdjust);
+      // Extend the mask by a tiny epsilon at each area seam so that the
+      // 1-2 px gap created by floating-point differences between adjacent
+      // octants' Schwarz-Christoffel mappings is always covered.
+      // The overlap pixels are later overwritten by the neighbouring area.
+      const SEAM_OVERLAP = 0.05; // degrees (~2 canvas px)
+      const maskedLonW = Math.max(lon,     area.swCorner.lon) -
+        (lon     <= area.swCorner.lon              ? SEAM_OVERLAP : 0);
+      const maskedLonE = Math.min(lon + 1, area.neCorner.lon + antiMeridianAdjust) +
+        (lon + 1 >= area.neCorner.lon              ? SEAM_OVERLAP : 0);
 
       const corners = [
         [lat,     lon    ], [lat,     lon + 1],
