@@ -51,21 +51,21 @@ const CITY_SHP = '../ne_10m_populated_places.shp';
 // --- Dots ---
 // Dots are drawn for ALL cities in the shapefile regardless of population.
 // Their radius is log-scaled over the full population range of the dataset.
-const CITY_DOT_RADIUS_MIN = 2;    // px — for the smallest cities
-const CITY_DOT_RADIUS_MAX = 8;    // px — for the largest cities (~35 M)
-const CITY_DOT_COLOR      = 'rgba(255, 255, 255, 0.92)';
+const CITY_DOT_RADIUS_MIN = 1;    // px — for the smallest cities
+const CITY_DOT_RADIUS_MAX = 9;    // px — for the largest cities (~35 M)
+const CITY_DOT_COLOR      = 'rgba(0, 0, 0, 0.70)';
 
 // --- Label placement ---
 // Only cities at or above this population are label candidates.
 // The greedy algorithm may further cull labels that can't be placed cleanly.
-const CITY_MIN_POPULATION = 500_000;
+const CITY_MIN_POPULATION = 100_000;
 
 // Maximum displacement of a label's anchor from its dot edge, in canvas pixels.
 // Labels with no clean candidate position within this radius are culled.
 const CITY_LABEL_MAX_DISP = 120;  // px
 
 // Minimum gap between the dot edge and the nearest edge of its label, in px.
-const CITY_LABEL_GAP = 8;         // px
+const CITY_LABEL_GAP = 4;         // px
 
 // Padding added to every side of a label's bounding box before overlap testing.
 // Increase for more breathing room between adjacent labels.
@@ -84,7 +84,7 @@ const CITY_LABEL_DIST_STEPS = 3;
 // --- Font ---
 // At 300 DPI: 15 px ≈ 3.6 pt — legible on photo paper for isolated labels.
 const CITY_FONT_FAMILY   = 'DejaVu Sans';
-const CITY_FONT_SIZE_MIN = 15;    // px — at CITY_MIN_POPULATION
+const CITY_FONT_SIZE_MIN = 9;    // px — at CITY_MIN_POPULATION
 const CITY_FONT_SIZE_MAX = 40;    // px — at ~35 M population
 
 const CITY_LABEL_COLOR = 'rgba(255, 255, 255, 0.92)';
