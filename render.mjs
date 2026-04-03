@@ -73,11 +73,12 @@ const CITY_LABEL_GAP = 10;         // px
 const CITY_LABEL_PADDING_MAX = 16;  // px — at CITY_MIN_POPULATION
 const CITY_LABEL_PADDING_MIN =  1;  // px — at max population (~35 M)
 
-// Candidate anchor angles tried for each label, in order of preference.
-// 0° = east (right of dot), values in degrees, clockwise positive.
-// Standard cartographic preference: right side first, then diagonals, then left.
-const CITY_LABEL_ANGLES = [0, -45, 45, -90, 90, 135, -135, 180]
-  .map(d => d * Math.PI / 180);
+// Candidate anchor angles tried for each label, at 15° increments.
+// 0° = east (right of dot); alternates ±offset so nearby angles are tried
+// before far ones: 0, -15, 15, -30, 30, …, -165, 165, 180.
+const CITY_LABEL_ANGLES = [0,
+  ...[15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165].flatMap(d => [-d, d]),
+  180].map(d => d * Math.PI / 180);
 
 // Number of distance steps tried at each angle, spaced evenly from
 // (dotRadius + CITY_LABEL_GAP) up to (dotRadius + CITY_LABEL_MAX_DISP).
