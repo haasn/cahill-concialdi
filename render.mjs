@@ -76,7 +76,7 @@ const CITY_LABEL_PADDING_MIN =  1;  // px — at max population (~35 M)
 // Candidate anchor angles tried for each label, in order of preference.
 // 0° = east (right of dot), values in degrees, clockwise positive.
 // Standard cartographic preference: right side first, then diagonals, then left.
-const CITY_LABEL_ANGLES = [0, -45, 45, -90, 90, 135, -135, 180]
+const CITY_LABEL_ANGLES = [45, 0, -45, -90, 90, 135, -135, 180]
   .map(d => d * Math.PI / 180);
 
 // Number of distance steps tried at each angle, spaced evenly from
