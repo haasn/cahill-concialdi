@@ -115,16 +115,16 @@ const CITY_LEADER_COLOR = 'rgba(0, 0, 0, 1.0)';
 
 // GPS coordinate of the LEFT anchor of the scale bar.
 // North Atlantic void, west of UK and south of Iceland.
-const SCALE_BAR_ANCHOR_LAT =  52;   // °N
-const SCALE_BAR_ANCHOR_LON = -33;   // °W
+const SCALE_BAR_ANCHOR_LAT =  30.2;   // °N
+const SCALE_BAR_ANCHOR_LON = -50;   // °W
 
 // Physical length of the bar on the printed page.
 const SCALE_BAR_LENGTH_MM  = 100;   // mm
 
 const SCALE_BAR_FONT_SIZE  =  38;   // px
-const SCALE_BAR_TICK_H     =  20;   // px  — height of end tick marks
-const SCALE_BAR_COLOR      = 'rgba(255, 255, 255, 0.95)';
-const SCALE_BAR_SHADOW     = 'rgba(0,   0,   0,   0.75)';
+const SCALE_BAR_TICK_H     =  12;   // px  — height of end tick marks
+const SCALE_BAR_COLOR      = 'rgba(255, 255, 255, 0.75)';
+const SCALE_BAR_SHADOW     = 'rgba(0,   0,   0,   0.50)';
 
 // ------------------------------------------------------------------
 // Load source TIFF as raw RGB
@@ -657,7 +657,7 @@ function drawScaleBar() {
 
   // Alternating black/white filled segments
   for (let i = 0; i < nSegs; i++) {
-    ctx.fillStyle = i % 2 === 0 ? 'black' : 'white';
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)';
     ctx.fillRect(x1 + i * segPx, y1 - barH / 2, segPx, barH);
   }
 
