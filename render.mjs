@@ -1,5 +1,5 @@
 // ==================================================================
-// PRINT RASTER RENDERER — DIN A0 @ 300 DPI
+// PRINT RASTER RENDERER
 // ------------------------------------------------------------------
 //
 // Produces a PNG suitable for high-quality print at DIN A0 landscape
@@ -28,13 +28,13 @@ import { MAP_AREAS, project,
 // ------------------------------------------------------------------
 // Output dimensions
 
-const DPI          = 300;
+const DPI          = 240;
 const MM_PER_INCH  = 25.4;
-const A0_WIDTH_MM  = 1189;   // landscape
-const A0_HEIGHT_MM =  841;
+const WIDTH_MM     = 1682;   // DIN 2A0 landscape
+const HEIGHT_MM    = 1189;
 
-const CANVAS_WIDTH  = Math.round(A0_WIDTH_MM  / MM_PER_INCH * DPI); // 14043
-const CANVAS_HEIGHT = Math.round(A0_HEIGHT_MM / MM_PER_INCH * DPI); // 9933
+const CANVAS_WIDTH  = Math.round(WIDTH_MM  / MM_PER_INCH * DPI);
+const CANVAS_HEIGHT = Math.round(HEIGHT_MM / MM_PER_INCH * DPI);
 
 const SOURCE_FILE = '../HYP_HR_SR_W_DR.tif';
 const OUTPUT_FILE = 'cahill-concialdi-a0.png';
