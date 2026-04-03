@@ -295,23 +295,26 @@ function getCityFont(/* props */) {
 
 async function drawCityLabels() {
 
-  // Log-scale helper: maps a population value to [0, 1]
-  const LOG_MIN = Math.log(CITY_MIN_POPULATION);
-  const LOG_MAX = Math.log(35_676_000);   // POP_MAX of Tokyo in this dataset
-  const logT = pop =>
-    Math.min(1, Math.max(0, (Math.log(Math.max(pop, 1)) - LOG_MIN) / (LOG_MAX - LOG_MIN)));
+  // Log-scale helpers
+  const LOG_MAX       = Math.log(35_676_000);  // POP_MAX of Tokyo in this dataset
+  const LOG_MIN_DOT   = Math.log(1);            // dots span the full population range
+  const LOG_MIN_LABEL = Math.log(CITY_MIN_POPULATION);
+  const logT = (pop, logMin) =>
+    Math.min(1, Math.max(0, (Math.log(Math.max(pop, 1)) - logMin) / (LOG_MAX - logMin)));
 
-  const source = await openShp(CITY_SHP);
-  let count = 0;
+  // --- Phase 1: load and project all cities ---
 
+  const allCities       = [];  // every city — for dot drawing
+  const labelCandidates = [];  // cities at or above CITY_MIN_POPULATION — for label placement
+
+  const source = await openShp(CITY_SHP, CITY_SHP.replace(/\.shp$/i, '.dbf'), { encoding: 'utf-8' });
   for (;;) {
     const { done, value: feature } = await source.read();
     if (done) break;
     if (feature.geometry?.type !== 'Point') continue;
 
-    const props = feature.properties;
-    if (props.POP_MAX < CITY_MIN_POPULATION) continue;
-
+    const props      = feature.properties;
+    const pop        = Math.max(props.POP_MAX, 0);
     const [lon, lat] = feature.geometry.coordinates;
 
     let pt;
@@ -324,37 +327,115 @@ async function drawCityLabels() {
 
     if (pt.x < 0 || pt.x >= CANVAS_WIDTH || pt.y < 0 || pt.y >= CANVAS_HEIGHT) continue;
 
-    const t          = logT(props.POP_MAX);
-    const fontSize   = Math.round(CITY_FONT_SIZE_MIN   + t * (CITY_FONT_SIZE_MAX   - CITY_FONT_SIZE_MIN));
-    const dotRadius  =            CITY_DOT_RADIUS_MIN  + t * (CITY_DOT_RADIUS_MAX  - CITY_DOT_RADIUS_MIN);
-    const label      = getCityLabel(props);
-    const fontFamily = getCityFont(props);
+    const dotT      = logT(pop, LOG_MIN_DOT);
+    const dotRadius = CITY_DOT_RADIUS_MIN + dotT * (CITY_DOT_RADIUS_MAX - CITY_DOT_RADIUS_MIN);
 
-    // Dot
+    allCities.push({ pt, dotRadius });
+
+    if (pop < CITY_MIN_POPULATION) continue;
+
+    const labelT   = logT(pop, LOG_MIN_LABEL);
+    const fontSize = Math.round(CITY_FONT_SIZE_MIN + labelT * (CITY_FONT_SIZE_MAX - CITY_FONT_SIZE_MIN));
+    const label    = getCityLabel(props);
+    const font     = getCityFont(props);
+
+    ctx.font = `${fontSize}px ${font}`;
+    const labelW = ctx.measureText(label).width;
+    const labelH = fontSize;
+
+    labelCandidates.push({ pt, dotRadius, pop, fontSize, font, label, labelW, labelH });
+  }
+
+  // --- Phase 2: greedy label placement in descending population order ---
+  //
+  // Processing high-population cities first means they always claim the cleanest
+  // nearby positions. Smaller cities fill remaining gaps or get culled — the
+  // "stronger spring / dominance" behaviour requested.
+  //
+  // For each city we try candidates in order: angles × distances (inner-first).
+  // The first candidate with zero bbox overlap is accepted; if none fits within
+  // CITY_LABEL_MAX_DISP the label is culled (dot is still drawn).
+
+  labelCandidates.sort((a, b) => b.pop - a.pop);
+
+  const placedBboxes = [];  // bounding boxes of accepted labels (with padding)
+  const placements   = [];  // {city, lx, ly} for rendering
+
+  for (const city of labelCandidates) {
+    const { pt, dotRadius, labelW, labelH } = city;
+
+    const minDist = dotRadius + CITY_LABEL_GAP;
+    const maxDist = dotRadius + CITY_LABEL_MAX_DISP;
+    const step    = CITY_LABEL_DIST_STEPS < 2
+      ? 0
+      : (maxDist - minDist) / (CITY_LABEL_DIST_STEPS - 1);
+
+    let placed = false;
+
+    distLoop: for (let di = 0; di < CITY_LABEL_DIST_STEPS; di++) {
+      const dist = minDist + di * step;
+
+      for (const angle of CITY_LABEL_ANGLES) {
+        const ax = pt.x + Math.cos(angle) * dist;
+        const ay = pt.y + Math.sin(angle) * dist;
+
+        // Align text so it stays on the same side of the dot as the anchor
+        const lx = Math.cos(angle) >= 0 ? ax : ax - labelW;
+        const ly = ay;  // textBaseline = 'middle' → ly is the vertical centre
+
+        const bbox = {
+          x: lx          - CITY_LABEL_PADDING,
+          y: ly - labelH / 2 - CITY_LABEL_PADDING,
+          w: labelW      + CITY_LABEL_PADDING * 2,
+          h: labelH      + CITY_LABEL_PADDING * 2,
+        };
+
+        const overlaps = placedBboxes.some(b =>
+          bbox.x         < b.x + b.w &&
+          bbox.x + bbox.w > b.x      &&
+          bbox.y         < b.y + b.h &&
+          bbox.y + bbox.h > b.y
+        );
+
+        if (!overlaps) {
+          placedBboxes.push(bbox);
+          placements.push({ city, lx, ly });
+          placed = true;
+          break distLoop;
+        }
+      }
+    }
+
+    void placed;  // culled cities still get their dot drawn below
+  }
+
+  // --- Phase 3: draw all dots ---
+
+  for (const { pt, dotRadius } of allCities) {
     ctx.beginPath();
     ctx.arc(pt.x, pt.y, dotRadius, 0, TWO_PI);
     ctx.fillStyle = CITY_DOT_COLOR;
     ctx.fill();
+  }
 
-    // Label
-    ctx.font         = `${fontSize}px ${fontFamily}`;
-    ctx.textBaseline = 'middle';
-    const lx = pt.x + dotRadius + CITY_LABEL_GAP;
-    const ly = pt.y + CITY_LABEL_NUDGE_Y;
+  // --- Phase 4: draw placed labels ---
+
+  ctx.textBaseline = 'middle';
+
+  for (const { city, lx, ly } of placements) {
+    ctx.font = `${city.fontSize}px ${city.font}`;
 
     if (CITY_HALO_WIDTH > 0) {
       ctx.lineWidth   = CITY_HALO_WIDTH * 2;
       ctx.strokeStyle = CITY_HALO_COLOR;
       ctx.lineJoin    = 'round';
-      ctx.strokeText(label, lx, ly);
+      ctx.strokeText(city.label, lx, ly);
     }
     ctx.fillStyle = CITY_LABEL_COLOR;
-    ctx.fillText(label, lx, ly);
-
-    count++;
+    ctx.fillText(city.label, lx, ly);
   }
 
-  return count;
+  return { dots: allCities.length, labels: placements.length, candidates: labelCandidates.length };
 }
 
 // ================================================================
@@ -376,8 +457,8 @@ console.log(`\nRendered in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 ctx.putImageData(imageData, 0, 0);
 
 process.stdout.write('Drawing city labels … ');
-const cityCount = await drawCityLabels();
-console.log(`${cityCount} cities drawn`);
+const { dots, labels, candidates } = await drawCityLabels();
+console.log(`${dots} dots drawn, ${labels}/${candidates} labels placed`);
 
 process.stdout.write('Writing PNG … ');
 const buf = canvas.toBuffer('image/png');
