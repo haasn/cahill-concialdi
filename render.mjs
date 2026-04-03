@@ -68,8 +68,10 @@ const CITY_LABEL_MAX_DISP = 120;  // px
 const CITY_LABEL_GAP = 4;         // px
 
 // Padding added to every side of a label's bounding box before overlap testing.
-// Increase for more breathing room between adjacent labels.
-const CITY_LABEL_PADDING = 5;     // px per side
+// Scales INVERSELY with log-population: small cities need more breathing room
+// to justify their presence; large cities can be packed tightly.
+const CITY_LABEL_PADDING_MAX = 20;  // px — at CITY_MIN_POPULATION
+const CITY_LABEL_PADDING_MIN =  3;  // px — at max population (~35 M)
 
 // Candidate anchor angles tried for each label, in order of preference.
 // 0° = east (right of dot), values in degrees, clockwise positive.
@@ -80,6 +82,10 @@ const CITY_LABEL_ANGLES = [0, -45, 45, -90, 90, 135, -135, 180]
 // Number of distance steps tried at each angle, spaced evenly from
 // (dotRadius + CITY_LABEL_GAP) up to (dotRadius + CITY_LABEL_MAX_DISP).
 const CITY_LABEL_DIST_STEPS = 3;
+
+// Radius threshold (px) above which dots use a radial gradient + outline
+// instead of a plain filled circle. Below this the dot is too small to matter.
+const CITY_DOT_GRADIENT_THRESHOLD = 4;
 
 // --- Font ---
 // At 300 DPI: 15 px ≈ 3.6 pt — legible on photo paper for isolated labels.
@@ -290,22 +296,69 @@ function getCityFont(/* props */) {
 }
 
 // ================================================================
+// MAP BOUNDARY
+// ================================================================
+
+// Builds the outer boundary of the projection as an array of canvas-coordinate
+// Points. Mirrors drawBackground() in map-vector.mjs exactly.
+function buildMapBoundaryPts() {
+  const c = pt => pt.rotate(MAP_TILT).translate(viewOrigin).scale(canvasPerSvg);
+  const pts = [];
+
+  pts.push(c(project(new LatLon(MAP_AREAS[5].neCorner.lat, MAP_AREAS[5].swCorner.lon), 5)));
+  for (let lat = 0; lat >= -DEGS_IN_CIRCLE / 4; lat--)
+    pts.push(c(project(new LatLon(lat, MAP_AREAS[5].swCorner.lon), 5)));
+  for (let lon = MAP_AREAS[7].neCorner.lon; lon >= MAP_AREAS[7].swCorner.lon; lon--)
+    pts.push(c(project(new LatLon(MAP_AREAS[7].neCorner.lat, lon))));
+  pts.push(c(project(MAP_AREAS[6].neCorner, 6)));
+  for (let lon = MAP_AREAS[8].swCorner.lon; lon <= MAP_AREAS[8].neCorner.lon; lon++)
+    pts.push(c(project(new LatLon(MAP_AREAS[8].swCorner.lat, lon), 8)));
+  pts.push(c(project(MAP_AREAS[8].neCorner)));
+  for (let lon = MAP_AREAS[9].neCorner.lon; lon >= MAP_AREAS[9].swCorner.lon; lon--)
+    pts.push(c(project(new LatLon(MAP_AREAS[9].neCorner.lat, lon), 9)));
+  for (let lat = -DEGS_IN_CIRCLE / 4; lat <= 0; lat++)
+    pts.push(c(project(new LatLon(lat, MAP_AREAS[11].neCorner.lon), 11)));
+  pts.push(c(project(MAP_AREAS[10].neCorner)));
+  for (let lat = 0; lat < DEGS_IN_CIRCLE / 4; lat++)
+    pts.push(c(project(new LatLon(lat, MAP_AREAS[4].neCorner.lon), 4)));
+  for (let lat = DEGS_IN_CIRCLE / 4; lat >= 0; lat--)
+    pts.push(c(project(new LatLon(lat, MAP_AREAS[0].swCorner.lon))));
+  pts.push(c(project(MAP_AREAS[5].neCorner)));
+
+  return pts;
+}
+
+// Ray-casting point-in-polygon test against the map boundary polygon.
+function isInsideMap(pts, x, y) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const { x: xi, y: yi } = pts[i];
+    const { x: xj, y: yj } = pts[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)
+      inside = !inside;
+  }
+  return inside;
+}
+
+// ================================================================
 // CITY LABEL RENDERING
 // ================================================================
 
 async function drawCityLabels() {
 
-  // Log-scale helpers
+  // Log-scale helper: maps a population to [0, 1]
   const LOG_MAX       = Math.log(35_676_000);  // POP_MAX of Tokyo in this dataset
-  const LOG_MIN_DOT   = Math.log(1);            // dots span the full population range
   const LOG_MIN_LABEL = Math.log(CITY_MIN_POPULATION);
-  const logT = (pop, logMin) =>
-    Math.min(1, Math.max(0, (Math.log(Math.max(pop, 1)) - logMin) / (LOG_MAX - logMin)));
+  const logT = pop =>
+    Math.min(1, Math.max(0, (Math.log(Math.max(pop, 1)) - LOG_MIN_LABEL) / (LOG_MAX - LOG_MIN_LABEL)));
 
-  // --- Phase 1: load and project all cities ---
+  const mapBoundary = buildMapBoundaryPts();
 
-  const allCities       = [];  // every city — for dot drawing
-  const labelCandidates = [];  // cities at or above CITY_MIN_POPULATION — for label placement
+  // --- Phase 1: load and project label candidates ---
+  // Dots are only drawn for cities that receive a label (Phase 3),
+  // so we only need to track label candidates here.
+
+  const labelCandidates = [];
 
   const source = await openShp(CITY_SHP, CITY_SHP.replace(/\.shp$/i, '.dbf'), { encoding: 'utf-8' });
   for (;;) {
@@ -315,6 +368,8 @@ async function drawCityLabels() {
 
     const props      = feature.properties;
     const pop        = Math.max(props.POP_MAX, 0);
+    if (pop < CITY_MIN_POPULATION) continue;
+
     const [lon, lat] = feature.geometry.coordinates;
 
     let pt;
@@ -327,50 +382,42 @@ async function drawCityLabels() {
 
     if (pt.x < 0 || pt.x >= CANVAS_WIDTH || pt.y < 0 || pt.y >= CANVAS_HEIGHT) continue;
 
-    const dotT      = logT(pop, LOG_MIN_DOT);
-    const dotRadius = CITY_DOT_RADIUS_MIN + dotT * (CITY_DOT_RADIUS_MAX - CITY_DOT_RADIUS_MIN);
-
-    allCities.push({ pt, dotRadius });
-
-    if (pop < CITY_MIN_POPULATION) continue;
-
-    const labelT   = logT(pop, LOG_MIN_LABEL);
-    const fontSize = Math.round(CITY_FONT_SIZE_MIN + labelT * (CITY_FONT_SIZE_MAX - CITY_FONT_SIZE_MIN));
+    const t        = logT(pop);
+    const fontSize = Math.round(CITY_FONT_SIZE_MIN + t * (CITY_FONT_SIZE_MAX - CITY_FONT_SIZE_MIN));
+    const dotR     = CITY_DOT_RADIUS_MIN + t * (CITY_DOT_RADIUS_MAX - CITY_DOT_RADIUS_MIN);
     const label    = getCityLabel(props);
     const font     = getCityFont(props);
 
     ctx.font = `${fontSize}px ${font}`;
     const labelW = ctx.measureText(label).width;
-    const labelH = fontSize;
 
-    labelCandidates.push({ pt, dotRadius, pop, fontSize, font, label, labelW, labelH });
+    // Per-city padding: inversely proportional to log-population so that
+    // small cities need more surrounding space to survive placement.
+    const padding = CITY_LABEL_PADDING_MAX - t * (CITY_LABEL_PADDING_MAX - CITY_LABEL_PADDING_MIN);
+
+    labelCandidates.push({ pt, dotR, pop, t, fontSize, font, label, labelW, labelH: fontSize, padding });
   }
 
   // --- Phase 2: greedy label placement in descending population order ---
   //
-  // Processing high-population cities first means they always claim the cleanest
-  // nearby positions. Smaller cities fill remaining gaps or get culled — the
-  // "stronger spring / dominance" behaviour requested.
-  //
-  // For each city we try candidates in order: angles × distances (inner-first).
-  // The first candidate with zero bbox overlap is accepted; if none fits within
-  // CITY_LABEL_MAX_DISP the label is culled (dot is still drawn).
+  // High-population cities are placed first and claim the best nearby slots.
+  // Small cities fill remaining gaps or are culled — implementing the
+  // "dominant spring" behaviour. Candidates whose anchor falls outside the
+  // map boundary are skipped, so labels never start outside the projection.
 
   labelCandidates.sort((a, b) => b.pop - a.pop);
 
-  const placedBboxes = [];  // bounding boxes of accepted labels (with padding)
-  const placements   = [];  // {city, lx, ly} for rendering
+  const placedBboxes = [];
+  const placements   = [];
 
   for (const city of labelCandidates) {
-    const { pt, dotRadius, labelW, labelH } = city;
+    const { pt, dotR, labelW, labelH, padding } = city;
 
-    const minDist = dotRadius + CITY_LABEL_GAP;
-    const maxDist = dotRadius + CITY_LABEL_MAX_DISP;
+    const minDist = dotR + CITY_LABEL_GAP;
+    const maxDist = dotR + CITY_LABEL_MAX_DISP;
     const step    = CITY_LABEL_DIST_STEPS < 2
       ? 0
       : (maxDist - minDist) / (CITY_LABEL_DIST_STEPS - 1);
-
-    let placed = false;
 
     distLoop: for (let di = 0; di < CITY_LABEL_DIST_STEPS; di++) {
       const dist = minDist + di * step;
@@ -379,15 +426,17 @@ async function drawCityLabels() {
         const ax = pt.x + Math.cos(angle) * dist;
         const ay = pt.y + Math.sin(angle) * dist;
 
-        // Align text so it stays on the same side of the dot as the anchor
+        // Reject candidates whose anchor lies outside the map projection
+        if (!isInsideMap(mapBoundary, ax, ay)) continue;
+
         const lx = Math.cos(angle) >= 0 ? ax : ax - labelW;
-        const ly = ay;  // textBaseline = 'middle' → ly is the vertical centre
+        const ly = ay;  // textBaseline = 'middle'
 
         const bbox = {
-          x: lx          - CITY_LABEL_PADDING,
-          y: ly - labelH / 2 - CITY_LABEL_PADDING,
-          w: labelW      + CITY_LABEL_PADDING * 2,
-          h: labelH      + CITY_LABEL_PADDING * 2,
+          x: lx          - padding,
+          y: ly - labelH / 2 - padding,
+          w: labelW      + padding * 2,
+          h: labelH      + padding * 2,
         };
 
         const overlaps = placedBboxes.some(b =>
@@ -400,25 +449,43 @@ async function drawCityLabels() {
         if (!overlaps) {
           placedBboxes.push(bbox);
           placements.push({ city, lx, ly });
-          placed = true;
           break distLoop;
         }
       }
     }
-
-    void placed;  // culled cities still get their dot drawn below
   }
 
-  // --- Phase 3: draw all dots ---
+  // --- Phase 3: draw dots for placed cities only ---
 
-  for (const { pt, dotRadius } of allCities) {
+  for (const { city: { pt, dotR } } of placements) {
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, dotRadius, 0, TWO_PI);
-    ctx.fillStyle = CITY_DOT_COLOR;
-    ctx.fill();
+    ctx.arc(pt.x, pt.y, dotR, 0, TWO_PI);
+
+    if (dotR >= CITY_DOT_GRADIENT_THRESHOLD) {
+      const g = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, dotR * 1.1);
+      g.addColorStop(0,    'rgba(255, 255, 255, 0.75)');  // bright specular centre
+      g.addColorStop(0.35, CITY_DOT_COLOR);               // solid body colour
+      g.addColorStop(1.0,  'rgba(0, 0, 0, 0.0)');         // fade to transparent
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.lineWidth   = Math.max(0.8, dotR * 0.12);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = CITY_DOT_COLOR;
+      ctx.fill();
+    }
   }
 
-  // --- Phase 4: draw placed labels ---
+  // --- Phase 4: draw labels, clipped to the map boundary ---
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(mapBoundary[0].x, mapBoundary[0].y);
+  for (let i = 1; i < mapBoundary.length; i++)
+    ctx.lineTo(mapBoundary[i].x, mapBoundary[i].y);
+  ctx.closePath();
+  ctx.clip();
 
   ctx.textBaseline = 'middle';
 
@@ -435,7 +502,9 @@ async function drawCityLabels() {
     ctx.fillText(city.label, lx, ly);
   }
 
-  return { dots: allCities.length, labels: placements.length, candidates: labelCandidates.length };
+  ctx.restore();
+
+  return { labels: placements.length, candidates: labelCandidates.length };
 }
 
 // ================================================================
@@ -457,8 +526,8 @@ console.log(`\nRendered in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 ctx.putImageData(imageData, 0, 0);
 
 process.stdout.write('Drawing city labels … ');
-const { dots, labels, candidates } = await drawCityLabels();
-console.log(`${dots} dots drawn, ${labels}/${candidates} labels placed`);
+const { labels, candidates } = await drawCityLabels();
+console.log(`${labels}/${candidates} labels placed (dots only for labelled cities)`);
 
 process.stdout.write('Writing PNG … ');
 const buf = canvas.toBuffer('image/png');
