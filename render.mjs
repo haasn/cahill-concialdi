@@ -52,26 +52,26 @@ const CITY_SHP = '../ne_10m_populated_places.shp';
 // Dots are drawn for ALL cities in the shapefile regardless of population.
 // Their radius is log-scaled over the full population range of the dataset.
 const CITY_DOT_RADIUS_MIN = 1;    // px — for the smallest cities
-const CITY_DOT_RADIUS_MAX = 9;    // px — for the largest cities (~35 M)
-const CITY_DOT_COLOR      = 'rgba(0, 0, 0, 0.70)';
+const CITY_DOT_RADIUS_MAX = 12;   // px — for the largest cities (~35 M)
+const CITY_DOT_COLOR      = 'rgba(0, 0, 0, 0.50)';
 
 // --- Label placement ---
 // Only cities at or above this population are label candidates.
 // The greedy algorithm may further cull labels that can't be placed cleanly.
-const CITY_MIN_POPULATION = 100_000;
+const CITY_MIN_POPULATION = 10_000;
 
 // Maximum displacement of a label's anchor from its dot edge, in canvas pixels.
 // Labels with no clean candidate position within this radius are culled.
-const CITY_LABEL_MAX_DISP = 120;  // px
+const CITY_LABEL_MAX_DISP = 40;  // px
 
 // Minimum gap between the dot edge and the nearest edge of its label, in px.
-const CITY_LABEL_GAP = 4;         // px
+const CITY_LABEL_GAP = 10;         // px
 
 // Padding added to every side of a label's bounding box before overlap testing.
 // Scales INVERSELY with log-population: small cities need more breathing room
 // to justify their presence; large cities can be packed tightly.
-const CITY_LABEL_PADDING_MAX = 20;  // px — at CITY_MIN_POPULATION
-const CITY_LABEL_PADDING_MIN =  3;  // px — at max population (~35 M)
+const CITY_LABEL_PADDING_MAX = 16;  // px — at CITY_MIN_POPULATION
+const CITY_LABEL_PADDING_MIN =  1;  // px — at max population (~35 M)
 
 // Candidate anchor angles tried for each label, in order of preference.
 // 0° = east (right of dot), values in degrees, clockwise positive.
@@ -85,23 +85,23 @@ const CITY_LABEL_DIST_STEPS = 3;
 
 // Radius threshold (px) above which dots use a radial gradient + outline
 // instead of a plain filled circle. Below this the dot is too small to matter.
-const CITY_DOT_GRADIENT_THRESHOLD = 4;
+const CITY_DOT_GRADIENT_THRESHOLD = 6;
 
 // --- Font ---
 // At 300 DPI: 15 px ≈ 3.6 pt — legible on photo paper for isolated labels.
 const CITY_FONT_FAMILY   = 'DejaVu Sans';
 const CITY_FONT_SIZE_MIN = 9;    // px — at CITY_MIN_POPULATION
-const CITY_FONT_SIZE_MAX = 40;    // px — at ~35 M population
+const CITY_FONT_SIZE_MAX = 32;    // px — at ~35 M population
 
 // Complex labels (dots at or above CITY_DOT_GRADIENT_THRESHOLD): white fill + dark halo
 const CITY_LABEL_COLOR  = 'rgba(255, 255, 255, 0.92)';
 const CITY_HALO_WIDTH   = 2;       // px half-width of dark outline; 0 to disable
 const CITY_HALO_COLOR   = 'rgba(0, 0, 0, 0.65)';
 // Simple labels (dots below CITY_DOT_GRADIENT_THRESHOLD): plain fill, no halo
-const CITY_LABEL_COLOR_SIMPLE = 'black';
+const CITY_LABEL_COLOR_SIMPLE = 'rgba(0, 0, 0, 0.92)';
 
 // 1 px leader line connecting each label to its dot
-const CITY_LEADER_COLOR = 'rgba(255, 255, 255, 0.5)';
+const CITY_LEADER_COLOR = 'rgba(0, 0, 0, 1.0)';
 
 // ------------------------------------------------------------------
 // Load source TIFF as raw RGB
@@ -472,13 +472,12 @@ async function drawCityLabels() {
 
     if (dotR >= CITY_DOT_GRADIENT_THRESHOLD) {
       const g = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, dotR * 1.1);
-      g.addColorStop(0,    'rgba(255, 255, 255, 0.75)');  // bright specular centre
-      g.addColorStop(0.35, CITY_DOT_COLOR);               // solid body colour
-      g.addColorStop(1.0,  'rgba(0, 0, 0, 0.0)');         // fade to transparent
+      g.addColorStop(0,    'rgba(255, 255, 255, 0.20)'); // center
+      g.addColorStop(0.75, 'rgba(255, 255, 255, 0.70');  // body colour
       ctx.fillStyle = g;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
-      ctx.lineWidth   = Math.max(0.8, dotR * 0.12);
+      ctx.strokeStyle = CITY_DOT_COLOR;
+      ctx.lineWidth   = Math.max(2, dotR * 0.2);
       ctx.stroke();
     } else {
       ctx.fillStyle = CITY_DOT_COLOR;
