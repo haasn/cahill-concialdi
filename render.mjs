@@ -123,7 +123,6 @@ const SCALE_BAR_LENGTH_MM  = 100;   // mm
 
 const SCALE_BAR_FONT_SIZE  =  38;   // px
 const SCALE_BAR_TICK_H     =  20;   // px  — height of end tick marks
-const SCALE_BAR_LINE_W     =   5;   // px  — stroke width
 const SCALE_BAR_COLOR      = 'rgba(255, 255, 255, 0.95)';
 const SCALE_BAR_SHADOW     = 'rgba(0,   0,   0,   0.75)';
 
@@ -649,35 +648,30 @@ function drawScaleBar() {
     `  (P1 ${SCALE_BAR_ANCHOR_LAT}°N ${SCALE_BAR_ANCHOR_LON}°W →` +
     `  P2 ${lat2.toFixed(3)}°N ${lon2.toFixed(3)}°E)`);
 
-  const x1 = p1.x, y1 = p1.y, x2 = tx, y2 = ty;
-  const th = SCALE_BAR_TICK_H;
+  const x1 = p1.x, y1 = p1.y;
+  const segPx = 10 / 25.4 * DPI;             // 1 cm in pixels
+  const nSegs = Math.round(targetPx / segPx);
+  const barH  = SCALE_BAR_TICK_H;
 
   ctx.save();
-  ctx.lineCap = 'butt';
 
-  // Draw twice: shadow pass then main pass
-  for (const [style, lw] of [
-    [SCALE_BAR_SHADOW, SCALE_BAR_LINE_W + 5],
-    [SCALE_BAR_COLOR,  SCALE_BAR_LINE_W],
-  ]) {
-    ctx.strokeStyle = style;
-    ctx.lineWidth   = lw;
-    ctx.beginPath();
-    // Left tick
-    ctx.moveTo(x1, y1 - th / 2); ctx.lineTo(x1, y1 + th / 2);
-    // Horizontal bar
-    ctx.moveTo(x1, y1);           ctx.lineTo(x2, y2);
-    // Right tick
-    ctx.moveTo(x2, y2 - th / 2); ctx.lineTo(x2, y2 + th / 2);
-    ctx.stroke();
+  // Alternating black/white filled segments
+  for (let i = 0; i < nSegs; i++) {
+    ctx.fillStyle = i % 2 === 0 ? 'black' : 'white';
+    ctx.fillRect(x1 + i * segPx, y1 - barH / 2, segPx, barH);
   }
+
+  // Thin dark outline over the whole bar for contrast on any background
+  ctx.strokeStyle = SCALE_BAR_SHADOW;
+  ctx.lineWidth   = 2;
+  ctx.strokeRect(x1, y1 - barH / 2, targetPx, barH);
 
   // Label centred below the bar
   ctx.font         = `${SCALE_BAR_FONT_SIZE}px ${CITY_FONT_FAMILY}`;
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'top';
-  const lx = (x1 + x2) / 2;
-  const ly = y1 + th / 2 + 6;
+  const lx = x1 + targetPx / 2;
+  const ly = y1 + barH / 2 + 6;
   ctx.fillStyle = SCALE_BAR_SHADOW;
   ctx.fillText(distLabel, lx + 2, ly + 2);
   ctx.fillStyle = SCALE_BAR_COLOR;
