@@ -150,8 +150,11 @@ const canvas    = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
 const ctx       = canvas.getContext('2d');
 const imageData = ctx.createImageData(CANVAS_WIDTH, CANVAS_HEIGHT);
 
-// White background
-imageData.data.fill(255);
+// White background; alpha=0 marks "unwritten" for seam gap detection later.
+for (let i = 0; i < imageData.data.length; i += 4) {
+  imageData.data[i] = imageData.data[i + 1] = imageData.data[i + 2] = 255;
+  imageData.data[i + 3] = 0;
+}
 
 // ------------------------------------------------------------------
 // MapCell — adapted from map-raster.mjs, closes over canvas/source globals
@@ -300,26 +303,10 @@ function drawMapArea(area, idx) {
           .scale(canvasPerSvg)
       );
 
-      // Expand the mask polygon 1 px outward in canvas space to close the
-      // sub-pixel seam gaps that arise because adjacent octants' conformal
-      // mappings produce slightly different canvas positions for the shared
-      // boundary meridian.  The expansion uses already-projected coordinates
-      // so it never calls the conformal mapping out of range.
-      const MASK_EXPAND_PX = 1.0;
-      const mc  = corners.slice(4, 8);
-      const cx  = (mc[0].x + mc[1].x + mc[2].x + mc[3].x) / 4;
-      const cy  = (mc[0].y + mc[1].y + mc[2].y + mc[3].y) / 4;
-      const expandedMask = mc.map(p => {
-        const dx = p.x - cx, dy = p.y - cy;
-        const d  = Math.hypot(dx, dy) || 1;
-        return new Point(p.x + dx / d * MASK_EXPAND_PX,
-                         p.y + dy / d * MASK_EXPAND_PX);
-      });
-
       new MapCell(
         new LatLon(lat, lon),
         corners.slice(0, 4),
-        expandedMask,
+        corners.slice(4, 8),
       ).drawCell();
     }
   }
@@ -712,6 +699,52 @@ MAP_AREAS.forEach((area, idx) => {
   process.stdout.write(`\rRendering … area ${idx + 1}/${MAP_AREAS.length}`);
 });
 console.log(`\nRendered in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+
+// ------------------------------------------------------------------
+// Fill 1-2 px seam gaps between octants.
+// Adjacent octants' conformal mappings produce slightly different canvas
+// positions for the shared boundary meridian.  Rather than expanding masks
+// (which breaks inverse mapping), we detect unwritten pixels (alpha=0) that
+// are surrounded by written ones and fill them from their neighbours.
+
+process.stdout.write('Filling seam gaps … ');
+{
+  const d  = imageData.data;
+  const w  = CANVAS_WIDTH;
+  const nc = NUM_DEST_CHANNELS;
+  let filled = 0;
+
+  for (let y = 1; y < CANVAS_HEIGHT - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = (y * w + x) * nc;
+      if (d[i + 3] !== 0) continue;                     // already written
+
+      const nb = [
+        ((y - 1) * w + x) * nc,
+        ((y + 1) * w + x) * nc,
+        (y * w + (x - 1)) * nc,
+        (y * w + (x + 1)) * nc,
+      ];
+      let n = 0, r = 0, g = 0, b = 0;
+      for (const j of nb) {
+        if (d[j + 3] === 0) continue;                   // also unwritten
+        n++; r += d[j]; g += d[j + 1]; b += d[j + 2];
+      }
+      if (n >= 3) {                                      // isolated gap pixel
+        d[i]     = Math.round(r / n);
+        d[i + 1] = Math.round(g / n);
+        d[i + 2] = Math.round(b / n);
+        d[i + 3] = MAX_COLOR_VALUE;
+        filled++;
+      }
+    }
+  }
+  // Make all remaining unwritten pixels opaque (background)
+  for (let i = 3; i < d.length; i += 4) {
+    if (d[i] === 0) d[i] = MAX_COLOR_VALUE;
+  }
+  console.log(`${filled} pixels filled`);
+}
 
 // ------------------------------------------------------------------
 // Write pixel data, then overlay city labels
