@@ -83,6 +83,11 @@ const CITY_LABEL_ANGLES = [0, -45, 45, -90, 90, 135, -135, 180]
 // (dotRadius + CITY_LABEL_GAP) up to (dotRadius + CITY_LABEL_MAX_DISP).
 const CITY_LABEL_DIST_STEPS = 3;
 
+// When scoring candidate positions, only consider already-placed labels
+// whose bbox centre falls within this radius (px). Labels farther away
+// are irrelevant to local crowding and excluding them keeps scoring fast.
+const CITY_LABEL_SCORE_RADIUS = 40;
+
 // Radius threshold (px) above which dots use a radial gradient + outline
 // instead of a plain filled circle. Below this the dot is too small to matter.
 const CITY_DOT_GRADIENT_THRESHOLD = 6;
@@ -465,13 +470,14 @@ async function drawCityLabels() {
         // With no placed labels yet, use Infinity (any position is fine).
         const cx = bbox.x + bbox.w / 2;
         const cy = bbox.y + bbox.h / 2;
-        const score = placedBboxes.length === 0
-          ? 0
-          : placedBboxes.reduce((minD, b) => {
-              const dx = cx - (b.x + b.w / 2);
-              const dy = cy - (b.y + b.h / 2);
-              return Math.min(minD, dx * dx + dy * dy);
-            }, Infinity);
+        const scoreR2 = CITY_LABEL_SCORE_RADIUS * CITY_LABEL_SCORE_RADIUS;
+        const score = placedBboxes.reduce((minD, b) => {
+          const dx = cx - (b.x + b.w / 2);
+          const dy = cy - (b.y + b.h / 2);
+          const d2 = dx * dx + dy * dy;
+          return d2 <= scoreR2 ? Math.min(minD, d2) : minD;
+        }, Infinity);
+        // Infinity means no placed label is within the radius — treat as best possible
 
         if (score > bestScore) {
           bestScore     = score;
