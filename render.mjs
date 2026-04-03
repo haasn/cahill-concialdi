@@ -189,8 +189,12 @@ class MapCell {
           ? this.getPolarInverseLatLon(pixelPos)
           : this.getInverseLatLon     (pixelPos);
 
-        const srcX = Math.floor(SOURCE_PPD * ((latLon.lon + DEGS_IN_CIRCLE / 2) % DEGS_IN_CIRCLE));
-        const srcY = Math.floor(SOURCE_PPD * (DEGS_IN_CIRCLE / 4 - latLon.lat));
+        // Positive modulo for longitude: JS % returns negative for negative inputs,
+        // which causes out-of-bounds reads when floating-point drift pushes lon < -180.
+        const lonNorm = ((latLon.lon + DEGS_IN_CIRCLE / 2) % DEGS_IN_CIRCLE + DEGS_IN_CIRCLE) % DEGS_IN_CIRCLE;
+        const srcX = Math.min(Math.floor(SOURCE_PPD * lonNorm), srcInfo.width  - 1);
+        // Clamp latitude so polar drift never produces a negative or overflow row index.
+        const srcY = Math.max(0, Math.min(Math.floor(SOURCE_PPD * (DEGS_IN_CIRCLE / 4 - latLon.lat)), srcInfo.height - 1));
 
         const srcIdx = srcInfo.channels * (srcY * srcInfo.width + srcX);
         const dstIdx = NUM_DEST_CHANNELS * (y   * CANVAS_WIDTH  + x  );
