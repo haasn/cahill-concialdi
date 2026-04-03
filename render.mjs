@@ -93,9 +93,12 @@ const CITY_FONT_FAMILY   = 'DejaVu Sans';
 const CITY_FONT_SIZE_MIN = 9;    // px — at CITY_MIN_POPULATION
 const CITY_FONT_SIZE_MAX = 40;    // px — at ~35 M population
 
+// Complex labels (dots at or above CITY_DOT_GRADIENT_THRESHOLD): white fill + dark halo
 const CITY_LABEL_COLOR  = 'rgba(255, 255, 255, 0.92)';
 const CITY_HALO_WIDTH   = 2;       // px half-width of dark outline; 0 to disable
 const CITY_HALO_COLOR   = 'rgba(0, 0, 0, 0.65)';
+// Simple labels (dots below CITY_DOT_GRADIENT_THRESHOLD): plain fill, no halo
+const CITY_LABEL_COLOR_SIMPLE = 'black';
 
 // 1 px leader line connecting each label to its dot
 const CITY_LEADER_COLOR = 'rgba(255, 255, 255, 0.5)';
@@ -509,13 +512,19 @@ async function drawCityLabels() {
   for (const { city, lx, ly } of placements) {
     ctx.font = `${city.fontSize}px ${city.font}`;
 
-    if (CITY_HALO_WIDTH > 0) {
-      ctx.lineWidth   = CITY_HALO_WIDTH * 2;
-      ctx.strokeStyle = CITY_HALO_COLOR;
-      ctx.lineJoin    = 'round';
-      ctx.strokeText(city.label, lx, ly);
+    if (city.dotR >= CITY_DOT_GRADIENT_THRESHOLD) {
+      // Complex label: white fill + dark halo
+      if (CITY_HALO_WIDTH > 0) {
+        ctx.lineWidth   = CITY_HALO_WIDTH * 2;
+        ctx.strokeStyle = CITY_HALO_COLOR;
+        ctx.lineJoin    = 'round';
+        ctx.strokeText(city.label, lx, ly);
+      }
+      ctx.fillStyle = CITY_LABEL_COLOR;
+    } else {
+      // Simple label: plain black fill, no halo
+      ctx.fillStyle = CITY_LABEL_COLOR_SIMPLE;
     }
-    ctx.fillStyle = CITY_LABEL_COLOR;
     ctx.fillText(city.label, lx, ly);
   }
 
@@ -550,7 +559,8 @@ console.log(`${labels}/${candidates} labels placed (dots only for labelled citie
 // For fast iteration, change OUTPUT_FILE to end in .jpg (lossy but ~10× faster to write).
 process.stdout.write(`Writing ${OUTPUT_FILE} … `);
 const t1 = Date.now();
-await sharp(canvas.toBuffer('raw'), {
+const finalData = ctx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+await sharp(Buffer.from(finalData.data.buffer), {
   raw: { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, channels: 4 },
 })
   .withMetadata({ density: DPI })
