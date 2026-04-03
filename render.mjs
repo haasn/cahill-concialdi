@@ -73,24 +73,11 @@ const CITY_LABEL_GAP = 10;         // px
 const CITY_LABEL_PADDING_MAX = 16;  // px — at CITY_MIN_POPULATION
 const CITY_LABEL_PADDING_MIN =  1;  // px — at max population (~35 M)
 
-// Candidate anchor angles tried for each label, shuffled deterministically
-// by city coordinates so placement is stable across re-runs but not uniform.
+// Candidate anchor angles tried for each label, in order of preference.
+// 0° = east (right of dot), values in degrees, clockwise positive.
+// Standard cartographic preference: right side first, then diagonals, then left.
 const CITY_LABEL_ANGLES = [0, -45, 45, -90, 90, 135, -135, 180]
   .map(d => d * Math.PI / 180);
-
-// Fisher-Yates shuffle driven by a seeded LCG — returns a new array
-function seededShuffle(arr, seed) {
-  const out = arr.slice();
-  let s = (seed ^ 0xdeadbeef) >>> 0;
-  for (let i = out.length - 1; i > 0; i--) {
-    s = Math.imul(s ^ (s >>> 15), 0x2c1b3c6d) >>> 0;
-    s = Math.imul(s ^ (s >>> 12), 0x297a2d39) >>> 0;
-    s = (s ^ (s >>> 15)) >>> 0;
-    const j = s % (i + 1);
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
 
 // Number of distance steps tried at each angle, spaced evenly from
 // (dotRadius + CITY_LABEL_GAP) up to (dotRadius + CITY_LABEL_MAX_DISP).
@@ -417,7 +404,7 @@ async function drawCityLabels() {
     // small cities need more surrounding space to survive placement.
     const padding = CITY_LABEL_PADDING_MAX - t * (CITY_LABEL_PADDING_MAX - CITY_LABEL_PADDING_MIN);
 
-    labelCandidates.push({ pt, latLon: { lon, lat }, dotR, pop, t, fontSize, font, label, labelW, labelH: fontSize, padding });
+    labelCandidates.push({ pt, dotR, pop, t, fontSize, font, label, labelW, labelH: fontSize, padding });
   }
 
   // --- Phase 2: greedy label placement in descending population order ---
@@ -441,17 +428,19 @@ async function drawCityLabels() {
       ? 0
       : (maxDist - minDist) / (CITY_LABEL_DIST_STEPS - 1);
 
-    const angles = seededShuffle(CITY_LABEL_ANGLES,
-      Math.round(city.latLon.lon * 1000) * 100003 + Math.round(city.latLon.lat * 1000));
+    // Collect all non-overlapping candidates across every angle × distance combo,
+    // then pick the one whose bbox center is furthest from the nearest placed bbox.
+    // This naturally avoids label clusters rather than just taking the first match.
+    let bestCandidate = null;
+    let bestScore     = -Infinity;
 
-    distLoop: for (let di = 0; di < CITY_LABEL_DIST_STEPS; di++) {
+    for (let di = 0; di < CITY_LABEL_DIST_STEPS; di++) {
       const dist = minDist + di * step;
 
-      for (const angle of angles) {
+      for (const angle of CITY_LABEL_ANGLES) {
         const ax = pt.x + Math.cos(angle) * dist;
         const ay = pt.y + Math.sin(angle) * dist;
 
-        // Reject candidates whose anchor lies outside the map projection
         if (!isInsideMap(mapBoundary, ax, ay)) continue;
 
         const lx = Math.cos(angle) >= 0 ? ax : ax - labelW;
@@ -470,13 +459,31 @@ async function drawCityLabels() {
           bbox.y         < b.y + b.h &&
           bbox.y + bbox.h > b.y
         );
+        if (overlaps) continue;
 
-        if (!overlaps) {
-          placedBboxes.push(bbox);
-          placements.push({ city, lx, ly, ax, ay });
-          break distLoop;
+        // Score = distance to the nearest already-placed bbox center.
+        // With no placed labels yet, use Infinity (any position is fine).
+        const cx = bbox.x + bbox.w / 2;
+        const cy = bbox.y + bbox.h / 2;
+        const score = placedBboxes.length === 0
+          ? 0
+          : placedBboxes.reduce((minD, b) => {
+              const dx = cx - (b.x + b.w / 2);
+              const dy = cy - (b.y + b.h / 2);
+              return Math.min(minD, dx * dx + dy * dy);
+            }, Infinity);
+
+        if (score > bestScore) {
+          bestScore     = score;
+          bestCandidate = { bbox, lx, ly, ax, ay };
         }
       }
+    }
+
+    if (bestCandidate) {
+      const { bbox, lx, ly, ax, ay } = bestCandidate;
+      placedBboxes.push(bbox);
+      placements.push({ city, lx, ly, ax, ay });
     }
   }
 
