@@ -283,15 +283,8 @@ function drawMapArea(area, idx) {
   for (let lat = area.swCorner.lat; lat < area.neCorner.lat; lat++) {
     for (let lon = startLon; lon < endLon; lon++) {
 
-      // Extend the mask by a tiny epsilon at each area seam so that the
-      // 1-2 px gap created by floating-point differences between adjacent
-      // octants' Schwarz-Christoffel mappings is always covered.
-      // The overlap pixels are later overwritten by the neighbouring area.
-      const SEAM_OVERLAP = 0.05; // degrees (~2 canvas px)
-      const maskedLonW = Math.max(lon,     area.swCorner.lon) -
-        (lon     <= area.swCorner.lon              ? SEAM_OVERLAP : 0);
-      const maskedLonE = Math.min(lon + 1, area.neCorner.lon + antiMeridianAdjust) +
-        (lon + 1 >= area.neCorner.lon              ? SEAM_OVERLAP : 0);
+      const maskedLonW = Math.max(lon,     area.swCorner.lon);
+      const maskedLonE = Math.min(lon + 1, area.neCorner.lon + antiMeridianAdjust);
 
       const corners = [
         [lat,     lon    ], [lat,     lon + 1],
@@ -307,10 +300,26 @@ function drawMapArea(area, idx) {
           .scale(canvasPerSvg)
       );
 
+      // Expand the mask polygon 1 px outward in canvas space to close the
+      // sub-pixel seam gaps that arise because adjacent octants' conformal
+      // mappings produce slightly different canvas positions for the shared
+      // boundary meridian.  The expansion uses already-projected coordinates
+      // so it never calls the conformal mapping out of range.
+      const MASK_EXPAND_PX = 1.0;
+      const mc  = corners.slice(4, 8);
+      const cx  = (mc[0].x + mc[1].x + mc[2].x + mc[3].x) / 4;
+      const cy  = (mc[0].y + mc[1].y + mc[2].y + mc[3].y) / 4;
+      const expandedMask = mc.map(p => {
+        const dx = p.x - cx, dy = p.y - cy;
+        const d  = Math.hypot(dx, dy) || 1;
+        return new Point(p.x + dx / d * MASK_EXPAND_PX,
+                         p.y + dy / d * MASK_EXPAND_PX);
+      });
+
       new MapCell(
         new LatLon(lat, lon),
         corners.slice(0, 4),
-        corners.slice(4, 8),
+        expandedMask,
       ).drawCell();
     }
   }
