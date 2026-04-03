@@ -73,11 +73,24 @@ const CITY_LABEL_GAP = 10;         // px
 const CITY_LABEL_PADDING_MAX = 16;  // px — at CITY_MIN_POPULATION
 const CITY_LABEL_PADDING_MIN =  1;  // px — at max population (~35 M)
 
-// Candidate anchor angles tried for each label, in order of preference.
-// 0° = east (right of dot), values in degrees, clockwise positive.
-// Standard cartographic preference: right side first, then diagonals, then left.
-const CITY_LABEL_ANGLES = [45, 0, -45, -90, 90, 135, -135, 180]
+// Candidate anchor angles tried for each label, shuffled deterministically
+// by city coordinates so placement is stable across re-runs but not uniform.
+const CITY_LABEL_ANGLES = [0, -45, 45, -90, 90, 135, -135, 180]
   .map(d => d * Math.PI / 180);
+
+// Fisher-Yates shuffle driven by a seeded LCG — returns a new array
+function seededShuffle(arr, seed) {
+  const out = arr.slice();
+  let s = (seed ^ 0xdeadbeef) >>> 0;
+  for (let i = out.length - 1; i > 0; i--) {
+    s = Math.imul(s ^ (s >>> 15), 0x2c1b3c6d) >>> 0;
+    s = Math.imul(s ^ (s >>> 12), 0x297a2d39) >>> 0;
+    s = (s ^ (s >>> 15)) >>> 0;
+    const j = s % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
 
 // Number of distance steps tried at each angle, spaced evenly from
 // (dotRadius + CITY_LABEL_GAP) up to (dotRadius + CITY_LABEL_MAX_DISP).
@@ -404,7 +417,7 @@ async function drawCityLabels() {
     // small cities need more surrounding space to survive placement.
     const padding = CITY_LABEL_PADDING_MAX - t * (CITY_LABEL_PADDING_MAX - CITY_LABEL_PADDING_MIN);
 
-    labelCandidates.push({ pt, dotR, pop, t, fontSize, font, label, labelW, labelH: fontSize, padding });
+    labelCandidates.push({ pt, latLon: { lon, lat }, dotR, pop, t, fontSize, font, label, labelW, labelH: fontSize, padding });
   }
 
   // --- Phase 2: greedy label placement in descending population order ---
@@ -428,10 +441,13 @@ async function drawCityLabels() {
       ? 0
       : (maxDist - minDist) / (CITY_LABEL_DIST_STEPS - 1);
 
+    const angles = seededShuffle(CITY_LABEL_ANGLES,
+      Math.round(city.latLon.lon * 1000) * 100003 + Math.round(city.latLon.lat * 1000));
+
     distLoop: for (let di = 0; di < CITY_LABEL_DIST_STEPS; di++) {
       const dist = minDist + di * step;
 
-      for (const angle of CITY_LABEL_ANGLES) {
+      for (const angle of angles) {
         const ax = pt.x + Math.cos(angle) * dist;
         const ay = pt.y + Math.sin(angle) * dist;
 
