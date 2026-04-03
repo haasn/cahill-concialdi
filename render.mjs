@@ -93,9 +93,12 @@ const CITY_FONT_FAMILY   = 'DejaVu Sans';
 const CITY_FONT_SIZE_MIN = 9;    // px — at CITY_MIN_POPULATION
 const CITY_FONT_SIZE_MAX = 40;    // px — at ~35 M population
 
-const CITY_LABEL_COLOR = 'rgba(255, 255, 255, 0.92)';
-const CITY_HALO_WIDTH  = 2;       // px half-width of dark outline; 0 to disable
-const CITY_HALO_COLOR  = 'rgba(0, 0, 0, 0.65)';
+const CITY_LABEL_COLOR  = 'rgba(255, 255, 255, 0.92)';
+const CITY_HALO_WIDTH   = 2;       // px half-width of dark outline; 0 to disable
+const CITY_HALO_COLOR   = 'rgba(0, 0, 0, 0.65)';
+
+// 1 px leader line connecting each label to its dot
+const CITY_LEADER_COLOR = 'rgba(255, 255, 255, 0.5)';
 
 // ------------------------------------------------------------------
 // Load source TIFF as raw RGB
@@ -366,8 +369,11 @@ async function drawCityLabels() {
     if (done) break;
     if (feature.geometry?.type !== 'Point') continue;
 
-    const props      = feature.properties;
-    const pop        = Math.max(props.POP_MAX, 0);
+    const props = feature.properties;
+    // POP_MIN is the city-proper figure; POP_MAX is inconsistently sourced
+    // (sometimes metro, sometimes wider agglomeration) and can be misleading.
+    // Fall back to POP_MAX only for the ~21 records where POP_MIN is missing.
+    const pop = props.POP_MIN > 0 ? props.POP_MIN : Math.max(props.POP_MAX, 0);
     if (pop < CITY_MIN_POPULATION) continue;
 
     const [lon, lat] = feature.geometry.coordinates;
@@ -448,7 +454,7 @@ async function drawCityLabels() {
 
         if (!overlaps) {
           placedBboxes.push(bbox);
-          placements.push({ city, lx, ly });
+          placements.push({ city, lx, ly, ax, ay });
           break distLoop;
         }
       }
@@ -486,6 +492,17 @@ async function drawCityLabels() {
     ctx.lineTo(mapBoundary[i].x, mapBoundary[i].y);
   ctx.closePath();
   ctx.clip();
+
+  // Leader lines — draw first so labels render on top
+  ctx.lineWidth   = 1;
+  ctx.strokeStyle = CITY_LEADER_COLOR;
+  for (const { city: { pt, dotR }, ax, ay } of placements) {
+    const angle = Math.atan2(ay - pt.y, ax - pt.x);
+    ctx.beginPath();
+    ctx.moveTo(pt.x + Math.cos(angle) * dotR, pt.y + Math.sin(angle) * dotR);
+    ctx.lineTo(ax, ay);
+    ctx.stroke();
+  }
 
   ctx.textBaseline = 'middle';
 
@@ -529,10 +546,14 @@ process.stdout.write('Drawing city labels … ');
 const { labels, candidates } = await drawCityLabels();
 console.log(`${labels}/${candidates} labels placed (dots only for labelled cities)`);
 
-process.stdout.write('Writing PNG … ');
-const buf = canvas.toBuffer('image/png');
-await sharp(buf)
+// Pass raw pixel data directly to sharp to avoid a redundant encode/decode cycle.
+// For fast iteration, change OUTPUT_FILE to end in .jpg (lossy but ~10× faster to write).
+process.stdout.write(`Writing ${OUTPUT_FILE} … `);
+const t1 = Date.now();
+await sharp(canvas.toBuffer('raw'), {
+  raw: { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, channels: 4 },
+})
   .withMetadata({ density: DPI })
   .toFile(OUTPUT_FILE);
 
-console.log(`done → ${OUTPUT_FILE}`);
+console.log(`done in ${((Date.now() - t1) / 1000).toFixed(1)} s`);
