@@ -109,6 +109,24 @@ const CITY_LABEL_COLOR_SIMPLE = 'rgba(0, 0, 0, 0.92)';
 // 1 px leader line connecting each label to its dot
 const CITY_LEADER_COLOR = 'rgba(0, 0, 0, 1.0)';
 
+// ================================================================
+// SCALE BAR CONSTANTS — edit these freely
+// ================================================================
+
+// GPS coordinate of the LEFT anchor of the scale bar.
+// North Atlantic void, west of UK and south of Iceland.
+const SCALE_BAR_ANCHOR_LAT =  52;   // °N
+const SCALE_BAR_ANCHOR_LON = -33;   // °W
+
+// Physical length of the bar on the printed page.
+const SCALE_BAR_LENGTH_MM  = 100;   // mm
+
+const SCALE_BAR_FONT_SIZE  =  38;   // px
+const SCALE_BAR_TICK_H     =  20;   // px  — height of end tick marks
+const SCALE_BAR_LINE_W     =   5;   // px  — stroke width
+const SCALE_BAR_COLOR      = 'rgba(255, 255, 255, 0.95)';
+const SCALE_BAR_SHADOW     = 'rgba(0,   0,   0,   0.75)';
+
 // ------------------------------------------------------------------
 // Load source TIFF as raw RGB
 
@@ -566,6 +584,109 @@ async function drawCityLabels() {
 }
 
 // ================================================================
+// SCALE BAR
+// ================================================================
+
+// Project a lat/lon to canvas pixel coordinates (with tilt + viewOrigin).
+function projectToCanvas(lat, lon) {
+  return project(new LatLon(lat, lon))
+    .rotate(MAP_TILT)
+    .translate(viewOrigin)
+    .scale(canvasPerSvg);
+}
+
+// Haversine great-circle distance in km.
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R   = 6371;
+  const rad = d => d * Math.PI / 180;
+  const a   = Math.sin(rad(lat2 - lat1) / 2) ** 2
+            + Math.cos(rad(lat1)) * Math.cos(rad(lat2))
+            * Math.sin(rad(lon2 - lon1) / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Newton-Raphson inverse projection: find the (lat, lon) that maps to
+// canvas pixel (tx, ty), starting from initial guess (lat0, lon0).
+function canvasInverse(tx, ty, lat0, lon0) {
+  let lat = lat0, lon = lon0;
+  const h = 1e-4; // degree perturbation for numerical Jacobian
+  for (let i = 0; i < 100; i++) {
+    const p  = projectToCanvas(lat, lon);
+    const fx = p.x - tx, fy = p.y - ty;
+    if (Math.abs(fx) < 0.01 && Math.abs(fy) < 0.01) break;
+    const pLat = projectToCanvas(lat + h, lon);
+    const pLon = projectToCanvas(lat, lon + h);
+    const dxdl = (pLat.x - p.x) / h, dydl = (pLat.y - p.y) / h;
+    const dxdn = (pLon.x - p.x) / h, dydn = (pLon.y - p.y) / h;
+    const det  = dxdl * dydn - dxdn * dydl;
+    lat += -(dydn * fx - dxdn * fy) / det;
+    lon += -(-dydl * fx + dxdl * fy) / det;
+  }
+  return { lat, lon };
+}
+
+function drawScaleBar() {
+  const targetPx = SCALE_BAR_LENGTH_MM / 25.4 * DPI;
+
+  // Left anchor in canvas space
+  const p1 = projectToCanvas(SCALE_BAR_ANCHOR_LAT, SCALE_BAR_ANCHOR_LON);
+
+  // Target right-end canvas position (same y = perfectly horizontal)
+  const tx = p1.x + targetPx;
+  const ty = p1.y;
+
+  // Rough initial guess for the right-end longitude:
+  // use the empirically measured scale of ~2.84 km/px, 1° lon at anchor lat ≈ 71.5 km
+  const approxKm   = targetPx * 2.84;
+  const approxDlon = approxKm / (111.19 * Math.cos(SCALE_BAR_ANCHOR_LAT * Math.PI / 180));
+  const { lat: lat2, lon: lon2 } =
+    canvasInverse(tx, ty, SCALE_BAR_ANCHOR_LAT, SCALE_BAR_ANCHOR_LON + approxDlon);
+
+  const distKm    = Math.round(haversineKm(SCALE_BAR_ANCHOR_LAT, SCALE_BAR_ANCHOR_LON, lat2, lon2));
+  const distLabel = `${distKm.toLocaleString()} km`;
+
+  console.log(`Scale bar: ${SCALE_BAR_LENGTH_MM} mm = ${distKm} km` +
+    `  (P1 ${SCALE_BAR_ANCHOR_LAT}°N ${SCALE_BAR_ANCHOR_LON}°W →` +
+    `  P2 ${lat2.toFixed(3)}°N ${lon2.toFixed(3)}°E)`);
+
+  const x1 = p1.x, y1 = p1.y, x2 = tx, y2 = ty;
+  const th = SCALE_BAR_TICK_H;
+
+  ctx.save();
+  ctx.lineCap = 'butt';
+
+  // Draw twice: shadow pass then main pass
+  for (const [style, lw] of [
+    [SCALE_BAR_SHADOW, SCALE_BAR_LINE_W + 5],
+    [SCALE_BAR_COLOR,  SCALE_BAR_LINE_W],
+  ]) {
+    ctx.strokeStyle = style;
+    ctx.lineWidth   = lw;
+    ctx.beginPath();
+    // Left tick
+    ctx.moveTo(x1, y1 - th / 2); ctx.lineTo(x1, y1 + th / 2);
+    // Horizontal bar
+    ctx.moveTo(x1, y1);           ctx.lineTo(x2, y2);
+    // Right tick
+    ctx.moveTo(x2, y2 - th / 2); ctx.lineTo(x2, y2 + th / 2);
+    ctx.stroke();
+  }
+
+  // Label centred below the bar
+  ctx.font         = `${SCALE_BAR_FONT_SIZE}px ${CITY_FONT_FAMILY}`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'top';
+  const lx = (x1 + x2) / 2;
+  const ly = y1 + th / 2 + 6;
+  ctx.fillStyle = SCALE_BAR_SHADOW;
+  ctx.fillText(distLabel, lx + 2, ly + 2);
+  ctx.fillStyle = SCALE_BAR_COLOR;
+  ctx.fillText(distLabel, lx, ly);
+
+  ctx.restore();
+}
+
+// ================================================================
 
 console.log(`Canvas: ${CANVAS_WIDTH}×${CANVAS_HEIGHT} px  (A0 landscape @ ${DPI} DPI)`);
 console.log(`Map scale: ${canvasPerSvg.toFixed(2)} px/SVG unit — ` +
@@ -586,6 +707,8 @@ ctx.putImageData(imageData, 0, 0);
 process.stdout.write('Drawing city labels … ');
 const { labels, candidates } = await drawCityLabels();
 console.log(`${labels}/${candidates} labels placed (dots only for labelled cities)`);
+
+drawScaleBar();
 
 // Pass raw pixel data directly to sharp to avoid a redundant encode/decode cycle.
 // For fast iteration, change OUTPUT_FILE to end in .jpg (lossy but ~10× faster to write).
