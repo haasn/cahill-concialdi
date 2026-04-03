@@ -28,7 +28,7 @@ import { MAP_AREAS, project,
 // ------------------------------------------------------------------
 // Output dimensions
 
-const DPI          = 240;
+const DPI          = 300;
 const MM_PER_INCH  = 25.4;
 const WIDTH_MM     = 1682;   // DIN 2A0 landscape
 const HEIGHT_MM    = 1189;
@@ -764,6 +764,7 @@ const t1 = Date.now();
 const finalData = ctx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 await sharp(Buffer.from(finalData.data.buffer), {
   raw: { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, channels: 4 },
+  limitInputPixels: false,
 })
   .withMetadata({ density: DPI })
   .toFile(OUTPUT_FILE);
