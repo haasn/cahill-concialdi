@@ -495,8 +495,11 @@ async function drawCityLabels() {
   }
 
   // --- Phase 3: draw dots for placed cities only ---
+  // Sort ascending by dotR so larger dots are painted last (on top).
 
-  for (const { city: { pt, dotR } } of placements) {
+  const placementsByDotSize = placements.slice().sort((a, b) => a.city.dotR - b.city.dotR);
+
+  for (const { city: { pt, dotR } } of placementsByDotSize) {
     ctx.beginPath();
     ctx.arc(pt.x, pt.y, dotR, 0, TWO_PI);
 
