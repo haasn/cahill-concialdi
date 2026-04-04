@@ -88,9 +88,10 @@ const CITY_DOT_COLOR      = 'rgba(0, 0, 0, 0.50)';
 // The greedy algorithm may further cull labels that can't be placed cleanly.
 const CITY_MIN_POPULATION = 10_000;
 
-// Maximum displacement of a label's anchor from its dot edge.
+// Maximum displacement of a label's anchor from its dot edge, scaled by population.
 // Labels with no clean candidate position within this radius are culled.
-const CITY_LABEL_MAX_DISP = mm(5);
+const CITY_LABEL_MAX_DISP_MIN = mm(1.5);  // at CITY_MIN_POPULATION
+const CITY_LABEL_MAX_DISP_MAX = mm(5.0);  // at max population (~35 M)
 
 // Minimum gap between the dot edge and the nearest edge of its label.
 const CITY_LABEL_GAP = mm(0.6);
@@ -109,7 +110,7 @@ const CITY_LABEL_ANGLES = [0,
   180].map(d => d * Math.PI / 180);
 
 // Number of distance steps tried at each angle, spaced evenly from
-// (dotRadius + CITY_LABEL_GAP) up to (dotRadius + CITY_LABEL_MAX_DISP).
+// (dotRadius + CITY_LABEL_GAP) up to (dotRadius + city.maxDisp).
 const CITY_LABEL_DIST_STEPS = 3;
 
 // When scoring candidate positions, only consider already-placed labels
@@ -590,10 +591,11 @@ async function drawCityLabels() {
 
     // Per-city padding: inversely proportional to log-population so that
     // small cities need more surrounding space to survive placement.
-    const padding = CITY_LABEL_PADDING_MAX - t * (CITY_LABEL_PADDING_MAX - CITY_LABEL_PADDING_MIN);
+    const padding  = CITY_LABEL_PADDING_MAX - t * (CITY_LABEL_PADDING_MAX - CITY_LABEL_PADDING_MIN);
+    const maxDisp  = CITY_LABEL_MAX_DISP_MIN + t * (CITY_LABEL_MAX_DISP_MAX - CITY_LABEL_MAX_DISP_MIN);
 
     const rtl = RTL_LANGS.has(COUNTRY_LANG[props.ADM0_A3]);
-    labelCandidates.push({ pt, dotR, pop, t, fontSize, font, label, labelW, labelH: fontSize, padding, rtl });
+    labelCandidates.push({ pt, dotR, pop, t, fontSize, font, label, labelW, labelH: fontSize, padding, maxDisp, rtl });
   }
 
   // --- Phase 2: greedy label placement in descending population order ---
@@ -612,7 +614,7 @@ async function drawCityLabels() {
     const { pt, dotR, labelW, labelH, padding } = city;
 
     const minDist = dotR + CITY_LABEL_GAP;
-    const maxDist = dotR + CITY_LABEL_MAX_DISP;
+    const maxDist = dotR + city.maxDisp;
     const step    = CITY_LABEL_DIST_STEPS < 2
       ? 0
       : (maxDist - minDist) / (CITY_LABEL_DIST_STEPS - 1);
