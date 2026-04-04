@@ -188,9 +188,10 @@ export const LANG_FONT = {
   th: 'Noto Sans Thai',
   // Burmese/Myanmar  (install: sudo dnf install google-noto-sans-myanmar-vf-fonts)
   my: 'Noto Sans Myanmar',
-  // Korean: fontconfig's CJK fallback uses the JP face of the Noto CJK TTC,
-  // which lacks Hangul. Register the KR face explicitly (see render.mjs).
-  ko: 'Noto Sans CJK KR',
+  // Korean: use Droid Sans Fallback (Android font, registered in render.mjs)
+  // which covers full Hangul with the same humanist weight as the DejaVu/Droid
+  // fallback used for Chinese and Japanese.
+  ko: 'Droid Sans Fallback',
   // Japanese and Chinese (ja, zh, zh-hant) intentionally absent: DejaVu Sans
   // triggers fontconfig fallback to a CJK font that is visually consistent.
   // All Latin, Cyrillic, Greek variants (az, bg, cs, da, et, fi, hr, hu,

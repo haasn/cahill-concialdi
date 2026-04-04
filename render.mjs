@@ -18,12 +18,12 @@ import sharp              from 'sharp';
 import { open as openShp } from 'shapefile';
 import { COUNTRY_LANG, LANG_NE_FIELD, LANG_FONT, RTL_LANGS } from './localnames.mjs';
 
-// fontconfig's CJK fallback (used for Japanese/Chinese via DejaVu Sans) selects
-// the JP face of the TTC, which lacks Hangul. Register the same file under the
-// KR family name so Korean has a working face to fall back to.
+// Droid Sans Fallback (from Android fonts) covers CJK + full Hangul with the
+// same humanist stroke weight as DejaVu Sans, giving visual consistency across
+// all CJK scripts including Korean.
 registerFont(
-  '/usr/share/fonts/google-noto-sans-cjk-vf-fonts/NotoSansCJK-VF.ttc',
-  { family: 'Noto Sans CJK KR' },
+  '/home/nand/map/fonts/DroidSansFallback.ttf',
+  { family: 'Droid Sans Fallback' },
 );
 
 // cahill-conformal.mjs uses Complex as a browser global; provide it here
