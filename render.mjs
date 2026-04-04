@@ -38,14 +38,15 @@ import { MAP_AREAS, project,
 // ------------------------------------------------------------------
 // Output dimensions
 
-const DPI          = 300;
+const DPI          = 400;
 const MM_PER_INCH  = 25.4;
 
 // Convert millimetres → canvas pixels at the current DPI.
 // All size constants below are expressed in mm so they stay correct if DPI changes.
 const mm = v => v * DPI / MM_PER_INCH;
-const WIDTH_MM     = 1682;   // DIN 2A0 landscape
-const HEIGHT_MM    = 1189;
+const WIDTH_MM     = 1596;
+const HEIGHT_MM    = 1141;
+
 //const WIDTH_MM     = 1189;   // DIN A0 landscape
 //const HEIGHT_MM    = 841;
 
@@ -79,9 +80,9 @@ const CITY_SHP = '../ne_10m_populated_places.shp';
 // --- Dots ---
 // Dots are drawn for ALL cities in the shapefile regardless of population.
 // Their radius is log-scaled over the full population range of the dataset.
-const CITY_DOT_RADIUS_MIN = mm(0.02);  // mm — for the smallest cities
+const CITY_DOT_RADIUS_MIN = mm(0.001);  // mm — for the smallest cities
 const CITY_DOT_RADIUS_MAX = mm(1.0);    // mm — for the largest cities (~35 M)
-const CITY_DOT_COLOR      = 'rgba(0, 0, 0, 0.50)';
+const CITY_DOT_COLOR      = 'rgba(0, 0, 0, 0.40)';
 
 // --- Label placement ---
 // Only cities at or above this population are label candidates.
@@ -96,7 +97,7 @@ const CITY_LABEL_WARN_CULLED = new Set([
 
 // Maximum displacement of a label's anchor from its dot edge, scaled by population.
 // Labels with no clean candidate position within this radius are culled.
-const CITY_LABEL_MAX_DISP_MIN = mm(1.5);  // at CITY_MIN_POPULATION
+const CITY_LABEL_MAX_DISP_MIN = mm(2.5);  // at CITY_MIN_POPULATION
 const CITY_LABEL_MAX_DISP_MAX = mm(5.0);  // at max population (~35 M)
 
 // Minimum gap between the dot edge and the nearest edge of its label.
@@ -105,7 +106,7 @@ const CITY_LABEL_GAP = mm(1.0);
 // Padding added to every side of a label's bounding box before overlap testing.
 // Scales INVERSELY with log-population: small cities need more breathing room
 // to justify their presence; large cities can be packed tightly.
-const CITY_LABEL_PADDING_MAX = mm(0.6); // at CITY_MIN_POPULATION
+const CITY_LABEL_PADDING_MAX = mm(0.5); // at CITY_MIN_POPULATION
 const CITY_LABEL_PADDING_MIN = mm(0.1); // at max population (~35 M)
 
 // Candidate anchor angles tried for each label, at 15° increments.
@@ -139,7 +140,7 @@ const CITY_LABEL_COLOR  = 'rgba(255, 255, 255, 0.92)';
 const CITY_HALO_WIDTH   = mm(0.2);  // half-width of dark outline; set to 0 to disable
 const CITY_HALO_COLOR   = 'rgba(0, 0, 0, 0.65)';
 // Simple labels (dots below CITY_DOT_GRADIENT_THRESHOLD): plain fill, no halo
-const CITY_LABEL_COLOR_SIMPLE = 'rgba(0, 0, 0, 0.92)';
+const CITY_LABEL_COLOR_SIMPLE = 'rgba(0, 0, 0, 1.0)';
 
 // Leader line connecting each label to its dot
 const CITY_LEADER_WIDTH = mm(0.1);
@@ -151,8 +152,8 @@ const CITY_LEADER_COLOR = 'rgba(0, 0, 0, 1.0)';
 
 // GPS coordinate of the LEFT anchor of the scale bar.
 // North Atlantic void, west of UK and south of Iceland.
-const SCALE_BAR_ANCHOR_LAT =  30;   // °N
-const SCALE_BAR_ANCHOR_LON = -50;   // °W
+const SCALE_BAR_ANCHOR_LAT =  38;   // °N
+const SCALE_BAR_ANCHOR_LON = -45;   // °W
 
 // Physical length of the bar on the printed page.
 const SCALE_BAR_LENGTH_MM  = 100;   // mm
