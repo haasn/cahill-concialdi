@@ -4,12 +4,12 @@
 // country codes) and streams alternateNamesV2.txt to find the best local name
 // for every city, then writes ne-localnames.json.
 //
-// Priority per city:
-//   1. GeoNames entry with isShortName=1  in the target language
-//   2. GeoNames entry with isPreferredName=1 in the target language
-//   3. GeoNames entry (any) in the target language
-//   4. NE shapefile field for the target language  (fallback, applied at render time)
-//   5. NE NAME field (English)                     (fallback, applied at render time)
+// Priority per city (applied at render time in getCityLabel):
+//   1. GeoNames entry with isShortName=1  in the target language   ← stored here
+//   2. NE shapefile field for the target language                   ← applied at render time
+//   3. GeoNames preferred/any entry, only for languages the NE     ← stored here (no NE field)
+//      shapefile does NOT cover (so NE curated short forms win)
+//   4. NE NAME field (English)                                      ← applied at render time
 //
 // Usage:
 //   node build-localnames.mjs
@@ -20,7 +20,7 @@ import { createReadStream } from 'fs';
 import { createInterface } from 'readline';
 import { writeFileSync } from 'fs';
 import shapefile from 'shapefile';
-import { COUNTRY_LANG } from './localnames.mjs';
+import { COUNTRY_LANG, LANG_NE_FIELD } from './localnames.mjs';
 
 const ALT_NAMES_FILE = '../ne_10m_populated_places.dbf';  // NE shapefile
 const GEONAMES_FILE  = `${process.env.HOME}/map/alternateNamesV2.txt`;
@@ -114,7 +114,12 @@ const result = {};
 let found = 0, missing = 0;
 
 for (const [gnId, cand] of candidates) {
-  const name = cand.short ?? cand.preferred ?? cand.any;
+  // Always use the GeoNames short name when one exists.
+  // For non-short names, only use GeoNames when the NE shapefile has no field
+  // for this language — otherwise NE's curated shorter city names take priority
+  // (e.g. NE NAME_DE = "Frankfurt" beats GeoNames preferred = "Frankfurt am Main").
+  const hasNEField = Boolean(LANG_NE_FIELD[cand.lang]);
+  const name = cand.short ?? (hasNEField ? null : (cand.preferred ?? cand.any));
   if (name) {
     result[gnId] = name;
     found++;

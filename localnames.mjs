@@ -168,11 +168,11 @@ export const LANG_FONT = {
   hy: 'Noto Sans Armenian',
   // Bengali
   bn: 'Noto Sans Bengali',
-  // CJK
-  ja:        'Noto Sans CJK JP',
-  zh:        'Noto Sans CJK SC',
-  'zh-hant': 'Noto Sans CJK TC',
-  ko:        'Noto Sans CJK KR',
+  // CJK — all variants share one registered family (see registerFont in render.mjs)
+  ja:        'Noto Sans CJK',
+  zh:        'Noto Sans CJK',
+  'zh-hant': 'Noto Sans CJK',
+  ko:        'Noto Sans CJK',
   // Devanagari
   hi: 'Noto Sans Devanagari',
   ne: 'Noto Sans Devanagari',

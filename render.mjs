@@ -13,10 +13,17 @@
 
 import { readFileSync }    from 'fs';
 import { Complex }        from 'complex.js';
-import { createCanvas }   from 'canvas';
+import { createCanvas, registerFont } from 'canvas';
 import sharp              from 'sharp';
 import { open as openShp } from 'shapefile';
 import { COUNTRY_LANG, LANG_NE_FIELD, LANG_FONT, RTL_LANGS } from './localnames.mjs';
+
+// node-canvas cannot use CJK glyphs via fontconfig from TTC variable fonts.
+// Register the CJK collection once under a single family name.
+registerFont(
+  '/usr/share/fonts/google-noto-sans-cjk-vf-fonts/NotoSansCJK-VF.ttc',
+  { family: 'Noto Sans CJK' },
+);
 
 // cahill-conformal.mjs uses Complex as a browser global; provide it here
 globalThis.Complex = Complex;
@@ -603,7 +610,7 @@ async function drawCityLabels() {
       ctx.fillStyle = CITY_LABEL_COLOR_SIMPLE;
     }
     ctx.fillText(city.label, tx, ly);
-    if (city.rtl) ctx.direction = 'inherit';
+    if (city.rtl) ctx.direction = 'ltr';
   }
 
   ctx.restore();
