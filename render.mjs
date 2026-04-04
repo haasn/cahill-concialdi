@@ -79,8 +79,8 @@ const CITY_SHP = '../ne_10m_populated_places.shp';
 // --- Dots ---
 // Dots are drawn for ALL cities in the shapefile regardless of population.
 // Their radius is log-scaled over the full population range of the dataset.
-const CITY_DOT_RADIUS_MIN = mm(0.085);  // mm — for the smallest cities
-const CITY_DOT_RADIUS_MAX = mm(1.5);    // mm — for the largest cities (~35 M)
+const CITY_DOT_RADIUS_MIN = mm(0.05);  // mm — for the smallest cities
+const CITY_DOT_RADIUS_MAX = mm(1.3);    // mm — for the largest cities (~35 M)
 const CITY_DOT_COLOR      = 'rgba(0, 0, 0, 0.50)';
 
 // --- Label placement ---
@@ -93,12 +93,12 @@ const CITY_MIN_POPULATION = 10_000;
 const CITY_LABEL_MAX_DISP = mm(5);
 
 // Minimum gap between the dot edge and the nearest edge of its label.
-const CITY_LABEL_GAP = mm(0.8);
+const CITY_LABEL_GAP = mm(0.6);
 
 // Padding added to every side of a label's bounding box before overlap testing.
 // Scales INVERSELY with log-population: small cities need more breathing room
 // to justify their presence; large cities can be packed tightly.
-const CITY_LABEL_PADDING_MAX = mm(2.0); // at CITY_MIN_POPULATION
+const CITY_LABEL_PADDING_MAX = mm(1.0); // at CITY_MIN_POPULATION
 const CITY_LABEL_PADDING_MIN = mm(0.1); // at max population (~35 M)
 
 // Candidate anchor angles tried for each label, at 15° increments.
@@ -115,11 +115,11 @@ const CITY_LABEL_DIST_STEPS = 3;
 // When scoring candidate positions, only consider already-placed labels
 // whose bbox centre falls within this radius. Labels farther away
 // are irrelevant to local crowding and excluding them keeps scoring fast.
-const CITY_LABEL_SCORE_RADIUS = mm(5);
+const CITY_LABEL_SCORE_RADIUS = mm(10);
 
 // Population threshold above which dots use a radial gradient + outline
 // instead of a plain filled circle, and labels use white fill + dark halo.
-const CITY_DOT_GRADIENT_THRESHOLD = 500_000;
+const CITY_DOT_GRADIENT_THRESHOLD = 1_000_000;
 
 // --- Font ---
 // 0.75 mm ≈ 9 pt at 300 DPI — legible on photo paper for isolated labels.
