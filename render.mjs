@@ -117,9 +117,9 @@ const CITY_LABEL_DIST_STEPS = 3;
 // are irrelevant to local crowding and excluding them keeps scoring fast.
 const CITY_LABEL_SCORE_RADIUS = mm(5);
 
-// Dot-radius threshold above which dots use a radial gradient + outline
-// instead of a plain filled circle. Below this the dot is too small to matter.
-const CITY_DOT_GRADIENT_THRESHOLD = mm(0.5);
+// Population threshold above which dots use a radial gradient + outline
+// instead of a plain filled circle, and labels use white fill + dark halo.
+const CITY_DOT_GRADIENT_THRESHOLD = 500_000;
 
 // --- Font ---
 // 0.75 mm ≈ 9 pt at 300 DPI — legible on photo paper for isolated labels.
@@ -681,11 +681,11 @@ async function drawCityLabels() {
 
   const placementsByDotSize = placements.slice().sort((a, b) => a.city.dotR - b.city.dotR);
 
-  for (const { city: { pt, dotR } } of placementsByDotSize) {
+  for (const { city: { pt, dotR, pop } } of placementsByDotSize) {
     ctx.beginPath();
     ctx.arc(pt.x, pt.y, dotR, 0, TWO_PI);
 
-    if (dotR >= CITY_DOT_GRADIENT_THRESHOLD) {
+    if (pop >= CITY_DOT_GRADIENT_THRESHOLD) {
       const g = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, dotR * 1.1);
       g.addColorStop(0,    'rgba(255, 255, 255, 0.20)'); // center
       g.addColorStop(0.75, 'rgba(255, 255, 255, 0.70');  // body colour
@@ -731,7 +731,7 @@ async function drawCityLabels() {
     if (city.rtl) ctx.direction = 'rtl';
     const tx = city.rtl ? lx + city.labelW : lx;
 
-    if (city.dotR >= CITY_DOT_GRADIENT_THRESHOLD) {
+    if (city.pop >= CITY_DOT_GRADIENT_THRESHOLD) {
       // Complex label: white fill + dark halo
       if (CITY_HALO_WIDTH > 0) {
         ctx.lineWidth   = CITY_HALO_WIDTH * 2;
