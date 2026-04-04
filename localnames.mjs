@@ -188,9 +188,14 @@ export const LANG_FONT = {
   th: 'Noto Sans Thai',
   // Burmese/Myanmar  (install: sudo dnf install google-noto-sans-myanmar-vf-fonts)
   my: 'Noto Sans Myanmar',
+  // Korean: fontconfig's CJK fallback uses the JP face of the Noto CJK TTC,
+  // which lacks Hangul. Register the KR face explicitly (see render.mjs).
+  ko: 'Noto Sans CJK KR',
+  // Japanese and Chinese (ja, zh, zh-hant) intentionally absent: DejaVu Sans
+  // triggers fontconfig fallback to a CJK font that is visually consistent.
   // All Latin, Cyrillic, Greek variants (az, bg, cs, da, et, fi, hr, hu,
   // is, kk, ky, lt, lv, mk, mn, ms, no, ro, sk, sl, sq, sr, sv, tg, tk,
-  // tr, uz, vi) are handled by DejaVu Sans / Noto Sans fallback.
+  // tr, uz, vi) are also handled by the DejaVu Sans fallback.
 };
 
 // Languages written right-to-left.

@@ -18,11 +18,12 @@ import sharp              from 'sharp';
 import { open as openShp } from 'shapefile';
 import { COUNTRY_LANG, LANG_NE_FIELD, LANG_FONT, RTL_LANGS } from './localnames.mjs';
 
-// node-canvas cannot use CJK glyphs via fontconfig from TTC variable fonts.
-// Register the CJK collection once under a single family name.
+// fontconfig's CJK fallback (used for Japanese/Chinese via DejaVu Sans) selects
+// the JP face of the TTC, which lacks Hangul. Register the same file under the
+// KR family name so Korean has a working face to fall back to.
 registerFont(
   '/usr/share/fonts/google-noto-sans-cjk-vf-fonts/NotoSansCJK-VF.ttc',
-  { family: 'Noto Sans CJK' },
+  { family: 'Noto Sans CJK KR' },
 );
 
 // cahill-conformal.mjs uses Complex as a browser global; provide it here
