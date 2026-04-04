@@ -84,8 +84,9 @@ export const COUNTRY_LANG = {
   MKD: 'mk',
   // Malay (ms) — Latin
   BRN: 'ms', MYS: 'ms',
-  // Mongolian (mn) — Cyrillic
-  MNG: 'mn',
+  // Mongolian — GeoNames 'mn' entries use traditional vertical script, not
+  // Cyrillic; use 'ru' to get NE's NAME_RU Cyrillic transliterations instead.
+  MNG: 'ru',
   // Burmese/Myanmar (my)
   MMR: 'my',
   // Nepali (ne) — Devanagari
