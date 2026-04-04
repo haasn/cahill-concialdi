@@ -79,8 +79,8 @@ const CITY_SHP = '../ne_10m_populated_places.shp';
 // --- Dots ---
 // Dots are drawn for ALL cities in the shapefile regardless of population.
 // Their radius is log-scaled over the full population range of the dataset.
-const CITY_DOT_RADIUS_MIN = mm(0.05);  // mm — for the smallest cities
-const CITY_DOT_RADIUS_MAX = mm(1.3);    // mm — for the largest cities (~35 M)
+const CITY_DOT_RADIUS_MIN = mm(0.02);  // mm — for the smallest cities
+const CITY_DOT_RADIUS_MAX = mm(1.0);    // mm — for the largest cities (~35 M)
 const CITY_DOT_COLOR      = 'rgba(0, 0, 0, 0.50)';
 
 // --- Label placement ---
@@ -94,12 +94,12 @@ const CITY_LABEL_MAX_DISP_MIN = mm(1.5);  // at CITY_MIN_POPULATION
 const CITY_LABEL_MAX_DISP_MAX = mm(5.0);  // at max population (~35 M)
 
 // Minimum gap between the dot edge and the nearest edge of its label.
-const CITY_LABEL_GAP = mm(0.6);
+const CITY_LABEL_GAP = mm(1.0);
 
 // Padding added to every side of a label's bounding box before overlap testing.
 // Scales INVERSELY with log-population: small cities need more breathing room
 // to justify their presence; large cities can be packed tightly.
-const CITY_LABEL_PADDING_MAX = mm(1.0); // at CITY_MIN_POPULATION
+const CITY_LABEL_PADDING_MAX = mm(0.6); // at CITY_MIN_POPULATION
 const CITY_LABEL_PADDING_MIN = mm(0.1); // at max population (~35 M)
 
 // Candidate anchor angles tried for each label, at 15° increments.
@@ -126,11 +126,11 @@ const CITY_DOT_GRADIENT_THRESHOLD = 1_000_000;
 // 0.75 mm ≈ 9 pt at 300 DPI — legible on photo paper for isolated labels.
 const CITY_FONT_FAMILY   = 'DejaVu Sans';
 const CITY_FONT_SIZE_MIN = mm(0.5);  // at CITY_MIN_POPULATION
-const CITY_FONT_SIZE_MAX = mm(3.0);  // at ~35 M population
+const CITY_FONT_SIZE_MAX = mm(2.8);  // at ~35 M population
 
 // Complex labels (dots at or above CITY_DOT_GRADIENT_THRESHOLD): white fill + dark halo
 const CITY_LABEL_COLOR  = 'rgba(255, 255, 255, 0.92)';
-const CITY_HALO_WIDTH   = mm(0.3);  // half-width of dark outline; set to 0 to disable
+const CITY_HALO_WIDTH   = mm(0.2);  // half-width of dark outline; set to 0 to disable
 const CITY_HALO_COLOR   = 'rgba(0, 0, 0, 0.65)';
 // Simple labels (dots below CITY_DOT_GRADIENT_THRESHOLD): plain fill, no halo
 const CITY_LABEL_COLOR_SIMPLE = 'rgba(0, 0, 0, 0.92)';
@@ -145,7 +145,7 @@ const CITY_LEADER_COLOR = 'rgba(0, 0, 0, 1.0)';
 
 // GPS coordinate of the LEFT anchor of the scale bar.
 // North Atlantic void, west of UK and south of Iceland.
-const SCALE_BAR_ANCHOR_LAT =  30.2;   // °N
+const SCALE_BAR_ANCHOR_LAT =  30;   // °N
 const SCALE_BAR_ANCHOR_LON = -50;   // °W
 
 // Physical length of the bar on the printed page.
