@@ -88,6 +88,12 @@ const CITY_DOT_COLOR      = 'rgba(0, 0, 0, 0.50)';
 // The greedy algorithm may further cull labels that can't be placed cleanly.
 const CITY_MIN_POPULATION = 10_000;
 
+// Warn on stdout if any of these cities (by English name) are culled.
+// National capitals are always warned about regardless of this list.
+const CITY_LABEL_WARN_CULLED = new Set([
+  'Prague',
+]);
+
 // Maximum displacement of a label's anchor from its dot edge, scaled by population.
 // Labels with no clean candidate position within this radius are culled.
 const CITY_LABEL_MAX_DISP_MIN = mm(1.5);  // at CITY_MIN_POPULATION
@@ -538,6 +544,22 @@ function drawGraticule() {
 // CITY LABEL RENDERING
 // ================================================================
 
+// Returns true if the label likely contains characters that will render as
+// missing-glyph boxes. Detects this by comparing each non-ASCII character's
+// width against a Private Use Area codepoint (U+E000), which should not be
+// in any standard font and so represents the "tofu box" width for this
+// font+size. If the font renders unknowns as zero-width, detection is skipped.
+function hasUnknownGlyph(label, font, fontSize) {
+  ctx.font = `${fontSize}px ${font}`;
+  const boxW = ctx.measureText('\uE000').width;
+  if (boxW === 0) return false; // can't detect; missing glyphs are invisible
+  for (const char of label) {
+    if (char.codePointAt(0) < 128) continue;
+    if (ctx.measureText(char).width === boxW) return true;
+  }
+  return false;
+}
+
 async function drawCityLabels() {
 
   // Log-scale helper: maps a population to [0, 1]
@@ -594,8 +616,11 @@ async function drawCityLabels() {
     const padding  = CITY_LABEL_PADDING_MAX - t * (CITY_LABEL_PADDING_MAX - CITY_LABEL_PADDING_MIN);
     const maxDisp  = CITY_LABEL_MAX_DISP_MIN + t * (CITY_LABEL_MAX_DISP_MAX - CITY_LABEL_MAX_DISP_MIN);
 
-    const rtl = RTL_LANGS.has(COUNTRY_LANG[props.ADM0_A3]);
-    labelCandidates.push({ pt, dotR, pop, t, fontSize, font, label, labelW, labelH: fontSize, padding, maxDisp, rtl });
+    const rtl       = RTL_LANGS.has(COUNTRY_LANG[props.ADM0_A3]);
+    const isCapital = props.ADM0CAP === 1;
+    const nameEn    = props.NAME;
+    const adm0      = props.ADM0_A3;
+    labelCandidates.push({ pt, dotR, pop, t, fontSize, font, label, labelW, labelH: fontSize, padding, maxDisp, rtl, isCapital, nameEn, adm0 });
   }
 
   // --- Phase 2: greedy label placement in descending population order ---
@@ -679,6 +704,17 @@ async function drawCityLabels() {
     }
   }
 
+  // --- Check for culled capitals / whitelisted cities ---
+
+  const placedSet = new Set(placements.map(p => p.city));
+  for (const city of labelCandidates) {
+    if (placedSet.has(city)) continue;
+    if (city.isCapital)
+      console.warn(`  WARNING: capital culled: ${city.nameEn} (${city.adm0})`);
+    else if (CITY_LABEL_WARN_CULLED.has(city.nameEn))
+      console.warn(`  WARNING: whitelisted city culled: ${city.nameEn} (${city.adm0})`);
+  }
+
   // --- Phase 3: draw dots for placed cities only ---
   // Sort ascending by dotR so larger dots are painted last (on top).
 
@@ -728,6 +764,9 @@ async function drawCityLabels() {
 
   for (const { city, lx, ly } of placements) {
     ctx.font = `${city.fontSize}px ${city.font}`;
+
+    if (hasUnknownGlyph(city.label, city.font, city.fontSize))
+      console.warn(`  WARNING: possible missing glyphs in label: ${city.nameEn} → "${city.label}"`);
 
     // RTL text (Arabic, Hebrew, Urdu, Persian): canvas textAlign='start' anchors
     // at the RIGHT edge when direction='rtl', so shift x to lx + labelW.
