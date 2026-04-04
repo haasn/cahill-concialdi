@@ -160,40 +160,44 @@ export const LANG_NE_FIELD = {
 // Languages not listed fall back to CITY_FONT_FAMILY (DejaVu Sans),
 // which covers Latin, Greek, and Cyrillic adequately.
 // ---------------------------------------------------------------------------
+// Droid Sans family (system: google-droid-sans-fonts) is preferred over Noto
+// where available — it was designed to harmonise with humanist sans-serifs and
+// matches the visual weight of the DejaVu Sans fallback used for Latin/CJK.
+// Noto is used only for scripts Droid does not cover.
 export const LANG_FONT = {
-  // Arabic script
-  ar: 'Noto Naskh Arabic',
-  fa: 'Noto Naskh Arabic',
-  ur: 'Noto Naskh Arabic',
-  // Armenian
-  hy: 'Noto Sans Armenian',
-  // Bengali
+  // Arabic script — Droid Arabic Kufi
+  ar: 'Droid Arabic Kufi',
+  fa: 'Droid Arabic Kufi',
+  ur: 'Droid Arabic Kufi',
+  // Armenian — Droid Sans Armenian
+  hy: 'Droid Sans Armenian',
+  // Bengali — no Droid coverage; Noto
   bn: 'Noto Sans Bengali',
-  // Devanagari
-  hi: 'Noto Sans Devanagari',
-  ne: 'Noto Sans Devanagari',
-  // Ethiopic
-  am: 'Noto Sans Ethiopic',
-  // Georgian
-  ka: 'Noto Sans Georgian',
-  // Hebrew
-  he: 'Noto Sans Hebrew',
-  // Khmer
+  // Devanagari — Droid Sans Devanagari
+  hi: 'Droid Sans Devanagari',
+  ne: 'Droid Sans Devanagari',
+  // Ethiopic — Droid Sans Ethiopic
+  am: 'Droid Sans Ethiopic',
+  // Georgian — Droid Sans Georgian
+  ka: 'Droid Sans Georgian',
+  // Hebrew — Droid Sans Hebrew
+  he: 'Droid Sans Hebrew',
+  // Khmer — no Droid coverage; Noto
   km: 'Noto Sans Khmer',
-  // Lao
+  // Lao — no Droid coverage; Noto
   lo: 'Noto Sans Lao',
-  // Sinhala
+  // Sinhala — no Droid coverage; Noto
   si: 'Noto Sans Sinhala',
-  // Thai
-  th: 'Noto Sans Thai',
-  // Burmese/Myanmar  (install: sudo dnf install google-noto-sans-myanmar-vf-fonts)
+  // Thai — Droid Sans Thai
+  th: 'Droid Sans Thai',
+  // Burmese/Myanmar — no Droid coverage; Noto
+  // (install: sudo dnf install google-noto-sans-myanmar-vf-fonts)
   my: 'Noto Sans Myanmar',
-  // Korean: use Droid Sans Fallback (Android font, registered in render.mjs)
-  // which covers full Hangul with the same humanist weight as the DejaVu/Droid
-  // fallback used for Chinese and Japanese.
+  // Korean/CJK — Droid Sans Fallback (registered in render.mjs from ~/map/fonts/)
+  // covers CJK + full Hangul with the same humanist weight as the DejaVu fallback.
   ko: 'Droid Sans Fallback',
   // Japanese and Chinese (ja, zh, zh-hant) intentionally absent: DejaVu Sans
-  // triggers fontconfig fallback to a CJK font that is visually consistent.
+  // triggers fontconfig fallback to Droid Sans Fallback, which is visually consistent.
   // All Latin, Cyrillic, Greek variants (az, bg, cs, da, et, fi, hr, hu,
   // is, kk, ky, lt, lv, mk, mn, ms, no, ro, sk, sl, sq, sr, sv, tg, tk,
   // tr, uz, vi) are also handled by the DejaVu Sans fallback.
