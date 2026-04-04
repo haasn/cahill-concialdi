@@ -39,8 +39,10 @@ import { MAP_AREAS, project,
 
 const DPI          = 300;
 const MM_PER_INCH  = 25.4;
-const WIDTH_MM     = 1682;   // DIN 2A0 landscape
-const HEIGHT_MM    = 1189;
+//const WIDTH_MM     = 1682;   // DIN 2A0 landscape
+//const HEIGHT_MM    = 1189;
+const WIDTH_MM     = 1189;   // DIN A0 landscape
+const HEIGHT_MM    = 841;
 
 const CANVAS_WIDTH  = Math.round(WIDTH_MM  / MM_PER_INCH * DPI);
 const CANVAS_HEIGHT = Math.round(HEIGHT_MM / MM_PER_INCH * DPI);
