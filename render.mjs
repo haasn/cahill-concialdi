@@ -91,7 +91,7 @@ const CITY_MIN_POPULATION = 10_000;
 // Warn on stdout if any of these cities (by English name) are culled.
 // National capitals are always warned about regardless of this list.
 const CITY_LABEL_WARN_CULLED = new Set([
-  'Prague',
+  'Prague', 'Ulm', 'Munich', 'Orsk', 'Augsburg'
 ]);
 
 // Maximum displacement of a label's anchor from its dot edge, scaled by population.
