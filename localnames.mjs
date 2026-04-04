@@ -191,6 +191,8 @@ export const LANG_FONT = {
   si: 'Noto Sans Sinhala',
   // Thai
   th: 'Noto Sans Thai',
+  // Burmese/Myanmar  (install: sudo dnf install google-noto-sans-myanmar-vf-fonts)
+  my: 'Noto Sans Myanmar',
   // All Latin, Cyrillic, Greek variants (az, bg, cs, da, et, fi, hr, hu,
   // is, kk, ky, lt, lv, mk, mn, ms, no, ro, sk, sl, sq, sr, sv, tg, tk,
   // tr, uz, vi) are handled by DejaVu Sans / Noto Sans fallback.

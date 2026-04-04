@@ -39,6 +39,10 @@ import { MAP_AREAS, project,
 
 const DPI          = 300;
 const MM_PER_INCH  = 25.4;
+
+// Convert millimetres → canvas pixels at the current DPI.
+// All size constants below are expressed in mm so they stay correct if DPI changes.
+const mm = v => v * DPI / MM_PER_INCH;
 //const WIDTH_MM     = 1682;   // DIN 2A0 landscape
 //const HEIGHT_MM    = 1189;
 const WIDTH_MM     = 1189;   // DIN A0 landscape
@@ -66,8 +70,8 @@ const CITY_SHP = '../ne_10m_populated_places.shp';
 // --- Dots ---
 // Dots are drawn for ALL cities in the shapefile regardless of population.
 // Their radius is log-scaled over the full population range of the dataset.
-const CITY_DOT_RADIUS_MIN = 1;    // px — for the smallest cities
-const CITY_DOT_RADIUS_MAX = 12;   // px — for the largest cities (~35 M)
+const CITY_DOT_RADIUS_MIN = mm(0.085);  // mm — for the smallest cities
+const CITY_DOT_RADIUS_MAX = mm(1.0);    // mm — for the largest cities (~35 M)
 const CITY_DOT_COLOR      = 'rgba(0, 0, 0, 0.50)';
 
 // --- Label placement ---
@@ -75,18 +79,18 @@ const CITY_DOT_COLOR      = 'rgba(0, 0, 0, 0.50)';
 // The greedy algorithm may further cull labels that can't be placed cleanly.
 const CITY_MIN_POPULATION = 10_000;
 
-// Maximum displacement of a label's anchor from its dot edge, in canvas pixels.
+// Maximum displacement of a label's anchor from its dot edge.
 // Labels with no clean candidate position within this radius are culled.
-const CITY_LABEL_MAX_DISP = 40;  // px
+const CITY_LABEL_MAX_DISP = mm(3.4);
 
-// Minimum gap between the dot edge and the nearest edge of its label, in px.
-const CITY_LABEL_GAP = 10;         // px
+// Minimum gap between the dot edge and the nearest edge of its label.
+const CITY_LABEL_GAP = mm(0.85);
 
 // Padding added to every side of a label's bounding box before overlap testing.
 // Scales INVERSELY with log-population: small cities need more breathing room
 // to justify their presence; large cities can be packed tightly.
-const CITY_LABEL_PADDING_MAX = 16;  // px — at CITY_MIN_POPULATION
-const CITY_LABEL_PADDING_MIN =  1;  // px — at max population (~35 M)
+const CITY_LABEL_PADDING_MAX = mm(1.35);  // at CITY_MIN_POPULATION
+const CITY_LABEL_PADDING_MIN = mm(0.085); // at max population (~35 M)
 
 // Candidate anchor angles tried for each label, at 15° increments.
 // 0° = east (right of dot); alternates ±offset so nearby angles are tried
@@ -100,33 +104,34 @@ const CITY_LABEL_ANGLES = [0,
 const CITY_LABEL_DIST_STEPS = 3;
 
 // When scoring candidate positions, only consider already-placed labels
-// whose bbox centre falls within this radius (px). Labels farther away
+// whose bbox centre falls within this radius. Labels farther away
 // are irrelevant to local crowding and excluding them keeps scoring fast.
-const CITY_LABEL_SCORE_RADIUS = 40;
+const CITY_LABEL_SCORE_RADIUS = mm(3.4);
 
-// Radius threshold (px) above which dots use a radial gradient + outline
+// Dot-radius threshold above which dots use a radial gradient + outline
 // instead of a plain filled circle. Below this the dot is too small to matter.
-const CITY_DOT_GRADIENT_THRESHOLD = 6;
+const CITY_DOT_GRADIENT_THRESHOLD = mm(0.5);
 
 // --- Font ---
-// At 300 DPI: 15 px ≈ 3.6 pt — legible on photo paper for isolated labels.
+// 0.75 mm ≈ 9 pt at 300 DPI — legible on photo paper for isolated labels.
 const CITY_FONT_FAMILY   = 'DejaVu Sans';
-const CITY_FONT_SIZE_MIN = 9;    // px — at CITY_MIN_POPULATION
-const CITY_FONT_SIZE_MAX = 32;    // px — at ~35 M population
+const CITY_FONT_SIZE_MIN = mm(0.75);  // at CITY_MIN_POPULATION
+const CITY_FONT_SIZE_MAX = mm(2.7);   // at ~35 M population
 // CJK glyphs are visually larger than Latin at the same point size and need
 // no outline (the fine strokes fill in). Both effects are applied when the
 // resolved font is 'Noto Sans CJK'.
-const CITY_CJK_FONT      = 'Noto Sans CJK';  // sentinel — matches LANG_FONT entries
-const CITY_CJK_FONT_BONUS = 6;  // px added on top of the normal size scale
+const CITY_CJK_FONT       = 'Noto Sans CJK';  // sentinel — matches LANG_FONT entries
+const CITY_CJK_FONT_BONUS = mm(0.5);           // added on top of the normal size scale
 
 // Complex labels (dots at or above CITY_DOT_GRADIENT_THRESHOLD): white fill + dark halo
 const CITY_LABEL_COLOR  = 'rgba(255, 255, 255, 0.92)';
-const CITY_HALO_WIDTH   = 2;       // px half-width of dark outline; 0 to disable
+const CITY_HALO_WIDTH   = mm(0.17);  // half-width of dark outline; set to 0 to disable
 const CITY_HALO_COLOR   = 'rgba(0, 0, 0, 0.65)';
 // Simple labels (dots below CITY_DOT_GRADIENT_THRESHOLD): plain fill, no halo
 const CITY_LABEL_COLOR_SIMPLE = 'rgba(0, 0, 0, 0.92)';
 
-// 1 px leader line connecting each label to its dot
+// Leader line connecting each label to its dot
+const CITY_LEADER_WIDTH = mm(0.085);
 const CITY_LEADER_COLOR = 'rgba(0, 0, 0, 1.0)';
 
 // ================================================================
@@ -141,8 +146,8 @@ const SCALE_BAR_ANCHOR_LON = -50;   // °W
 // Physical length of the bar on the printed page.
 const SCALE_BAR_LENGTH_MM  = 100;   // mm
 
-const SCALE_BAR_FONT_SIZE  =  38;   // px
-const SCALE_BAR_TICK_H     =  12;   // px  — height of end tick marks
+const SCALE_BAR_FONT_SIZE  = mm(3.2);   // label text height
+const SCALE_BAR_TICK_H     = mm(1.0);   // height of end tick marks
 const SCALE_BAR_COLOR      = 'rgba(255, 255, 255, 0.75)';
 const SCALE_BAR_SHADOW     = 'rgba(0,   0,   0,   0.50)';
 
@@ -566,7 +571,7 @@ async function drawCityLabels() {
       ctx.fillStyle = g;
       ctx.fill();
       ctx.strokeStyle = CITY_DOT_COLOR;
-      ctx.lineWidth   = Math.max(2, dotR * 0.2);
+      ctx.lineWidth   = Math.max(mm(0.17), dotR * 0.2);
       ctx.stroke();
     } else {
       ctx.fillStyle = CITY_DOT_COLOR;
@@ -585,7 +590,7 @@ async function drawCityLabels() {
   ctx.clip();
 
   // Leader lines — draw first so labels render on top
-  ctx.lineWidth   = 1;
+  ctx.lineWidth   = CITY_LEADER_WIDTH;
   ctx.strokeStyle = CITY_LEADER_COLOR;
   for (const { city: { pt, dotR }, ax, ay } of placements) {
     const angle = Math.atan2(ay - pt.y, ax - pt.x);
@@ -709,7 +714,7 @@ function drawScaleBar() {
 
   // Thin dark outline over the whole bar for contrast on any background
   ctx.strokeStyle = SCALE_BAR_SHADOW;
-  ctx.lineWidth   = 2;
+  ctx.lineWidth   = mm(0.17);
   ctx.strokeRect(x1, y1 - barH / 2, targetPx, barH);
 
   // Label centred below the bar
