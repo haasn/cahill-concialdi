@@ -456,7 +456,7 @@ async function drawCityLabels() {
     const fontSize = Math.round(CITY_FONT_SIZE_MIN + t * (CITY_FONT_SIZE_MAX - CITY_FONT_SIZE_MIN))
                    + (cjk ? CITY_CJK_FONT_BONUS : 0);
 
-    ctx.font = `${fontSize}px ${font}`;
+    ctx.font = `${cjk ? 'bold ' : ''}${fontSize}px ${font}`;
     const labelW = ctx.measureText(label).width;
 
     // Per-city padding: inversely proportional to log-population so that
@@ -596,17 +596,17 @@ async function drawCityLabels() {
   ctx.textBaseline = 'middle';
 
   for (const { city, lx, ly } of placements) {
-    ctx.font = `${city.fontSize}px ${city.font}`;
+    // CJK: bold weight for visual punch instead of halo; black fill at all sizes.
+    ctx.font = `${city.cjk ? 'bold ' : ''}${city.fontSize}px ${city.font}`;
 
     // RTL text (Arabic, Hebrew, Urdu, Persian): canvas textAlign='start' anchors
     // at the RIGHT edge when direction='rtl', so shift x to lx + labelW.
     if (city.rtl) ctx.direction = 'rtl';
     const tx = city.rtl ? lx + city.labelW : lx;
 
-    if (city.dotR >= CITY_DOT_GRADIENT_THRESHOLD) {
-      // Complex label: white fill + dark halo (halo suppressed for CJK —
-      // the fine strokes fill in and become illegible with an outline).
-      if (CITY_HALO_WIDTH > 0 && !city.cjk) {
+    if (!city.cjk && city.dotR >= CITY_DOT_GRADIENT_THRESHOLD) {
+      // Complex label: white fill + dark halo
+      if (CITY_HALO_WIDTH > 0) {
         ctx.lineWidth   = CITY_HALO_WIDTH * 2;
         ctx.strokeStyle = CITY_HALO_COLOR;
         ctx.lineJoin    = 'round';
@@ -614,7 +614,7 @@ async function drawCityLabels() {
       }
       ctx.fillStyle = CITY_LABEL_COLOR;
     } else {
-      // Simple label: plain black fill, no halo
+      // Simple label (and all CJK): plain black fill, no halo
       ctx.fillStyle = CITY_LABEL_COLOR_SIMPLE;
     }
     ctx.fillText(city.label, tx, ly);
