@@ -55,6 +55,13 @@ const CANVAS_HEIGHT = Math.round(HEIGHT_MM / MM_PER_INCH * DPI);
 const SOURCE_FILE = '../HYP_HR_SR_W_DR.tif';
 const OUTPUT_FILE = 'cahill-concialdi-a0.png';
 
+// Graticule line spacing in degrees. Available: 1, 5, 10, 15, 20, 30.
+// Set to null to disable.
+const GRATICULE_DEGREES = 10;
+
+const GRATICULE_COLOR     = 'white';
+const GRATICULE_LINE_WIDTH = mm(0.15);
+
 const NUM_DEST_CHANNELS = 4; // RGBA in canvas ImageData
 
 // Pre-built localised-name lookup: geonamesId (string) → local name.
@@ -439,6 +446,83 @@ function isInsideMap(pts, x, y) {
 }
 
 // ================================================================
+// GRATICULE
+// ================================================================
+
+// Draws latitude/longitude lines at GRATICULE_DEGREES intervals, projected
+// per-octant (same strategy as map-vector.mjs) so octant boundaries are
+// respected and stroke width is not distorted by the remap.
+function drawGraticule() {
+  if (!GRATICULE_DEGREES) return;
+
+  const mapBoundary = buildMapBoundaryPts();
+
+  ctx.save();
+
+  // Clip to map outline so lines don't bleed into the white border.
+  ctx.beginPath();
+  ctx.moveTo(mapBoundary[0].x, mapBoundary[0].y);
+  for (let i = 1; i < mapBoundary.length; i++)
+    ctx.lineTo(mapBoundary[i].x, mapBoundary[i].y);
+  ctx.closePath();
+  ctx.clip();
+
+  ctx.globalAlpha  = 0.5;
+  ctx.strokeStyle  = GRATICULE_COLOR;
+  ctx.lineWidth    = GRATICULE_LINE_WIDTH;
+  ctx.lineJoin     = 'round';
+  ctx.lineCap      = 'round';
+
+  const pt = (lat, lon, idx) =>
+    project(new LatLon(lat, lon), idx)
+      .rotate(MAP_TILT)
+      .translate(viewOrigin)
+      .scale(canvasPerSvg);
+
+  ctx.beginPath();
+
+  MAP_AREAS.forEach((area, idx) => {
+    let endLon = area.neCorner.lon;
+    if (area.hasAntimeridian) endLon += DEGS_IN_CIRCLE;
+
+    // Latitude lines
+    for (
+      let lat  = Math.ceil (area.swCorner.lat / GRATICULE_DEGREES) * GRATICULE_DEGREES;
+      lat     <= Math.floor(area.neCorner.lat / GRATICULE_DEGREES) * GRATICULE_DEGREES;
+      lat     += GRATICULE_DEGREES
+    ) {
+      const p0 = pt(lat, area.swCorner.lon, idx);
+      ctx.moveTo(p0.x, p0.y);
+      for (let lon = area.swCorner.lon + 1; lon <= endLon; lon++) {
+        const p = pt(lat, lon, idx);
+        ctx.lineTo(p.x, p.y);
+      }
+      if (area.swCorner.lon % 1 !== endLon % 1) {
+        const p = pt(lat, endLon, idx);
+        ctx.lineTo(p.x, p.y);
+      }
+    }
+
+    // Longitude lines
+    for (
+      let lon  = Math.ceil (area.swCorner.lon / GRATICULE_DEGREES) * GRATICULE_DEGREES;
+      lon     <= Math.floor(endLon            / GRATICULE_DEGREES) * GRATICULE_DEGREES;
+      lon     += GRATICULE_DEGREES
+    ) {
+      const p0 = pt(area.swCorner.lat, lon, idx);
+      ctx.moveTo(p0.x, p0.y);
+      for (let lat = area.swCorner.lat + 1; lat <= area.neCorner.lat; lat++) {
+        const p = pt(lat, lon, idx);
+        ctx.lineTo(p.x, p.y);
+      }
+    }
+  });
+
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ================================================================
 // CITY LABEL RENDERING
 // ================================================================
 
@@ -819,6 +903,8 @@ process.stdout.write('Filling seam gaps … ');
 // Write pixel data, then overlay city labels
 
 ctx.putImageData(imageData, 0, 0);
+
+drawGraticule();
 
 process.stdout.write('Drawing city labels … ');
 const { labels, candidates } = await drawCityLabels();
