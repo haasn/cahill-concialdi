@@ -560,10 +560,11 @@ async function drawCityLabels() {
     if (feature.geometry?.type !== 'Point') continue;
 
     const props = feature.properties;
-    // POP_MIN is the city-proper figure; POP_MAX is inconsistently sourced
-    // (sometimes metro, sometimes wider agglomeration) and can be misleading.
-    // Fall back to POP_MAX only for the ~21 records where POP_MIN is missing.
-    const pop = props.POP_MIN > 0 ? props.POP_MIN : Math.max(props.POP_MAX, 0);
+    // Geometric mean of POP_MIN and POP_MAX: balances the city-proper figure
+    // against the (sometimes wider) agglomeration figure without over-weighting either.
+    const pMin = Math.max(props.POP_MIN, 0);
+    const pMax = Math.max(props.POP_MAX, 0);
+    const pop  = pMin > 0 && pMax > 0 ? Math.sqrt(pMin * pMax) : Math.max(pMin, pMax);
     if (pop < CITY_MIN_POPULATION) continue;
 
     const [lon, lat] = feature.geometry.coordinates;
