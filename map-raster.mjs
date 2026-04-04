@@ -32,6 +32,43 @@ const CANVAS_PIXEL_DENSITY = 2;
 const MIN_TERMINATOR_DISTANCE = deg2Rad(89);
 const MAX_TERMINATOR_DISTANCE = deg2Rad(92);
 
+// Source image dimensions in pixels
+const SRC_WIDTH  = DEGS_IN_CIRCLE     * SOURCE_RASTER_PPD; // 3600
+const SRC_HEIGHT = DEGS_IN_CIRCLE / 2 * SOURCE_RASTER_PPD; // 1800
+
+// Catmull-Rom cubic kernel weight (a = -0.5)
+function cubicWeight(t) {
+  const at = Math.abs(t);
+  if (at <= 1) return 1.5*at*at*at - 2.5*at*at + 1;
+  if (at <= 2) return -0.5*at*at*at + 2.5*at*at - 4*at + 2;
+  return 0;
+}
+
+// Sample source raster data with bicubic filtering.
+// u, v are continuous source coordinates in [0..SRC_WIDTH) × [0..SRC_HEIGHT).
+// Wraps on x (longitude), clamps on y (latitude).
+function sampleBicubic(srcData, u, v) {
+  const ix = Math.floor(u);
+  const iy = Math.floor(v);
+  const tx = u - ix;
+  const ty = v - iy;
+  let r = 0, g = 0, b = 0;
+  for (let dy = -1; dy <= 2; dy++) {
+    const wy = cubicWeight(dy - ty);
+    const sy = Math.max(0, Math.min(SRC_HEIGHT - 1, iy + dy));
+    for (let dx = -1; dx <= 2; dx++) {
+      const wx = cubicWeight(dx - tx);
+      const sx = ((ix + dx) % SRC_WIDTH + SRC_WIDTH) % SRC_WIDTH;
+      const idx = NUM_CANVAS_DATA_CHANNELS * (sy * SRC_WIDTH + sx);
+      const w = wx * wy;
+      r += w * srcData[idx    ];
+      g += w * srcData[idx + 1];
+      b += w * srcData[idx + 2];
+    }
+  }
+  return [r, g, b];
+}
+
 // ------------------------------------------------------------------
 
 // Declare available raster map styles (data type and instances)
@@ -138,17 +175,11 @@ class MapCell {
           (latLon.lon + DEGS_IN_CIRCLE/2) % DEGS_IN_CIRCLE,
           DEGS_IN_CIRCLE/4 - latLon.lat,
         );
-        const srcDataIdx = NUM_CANVAS_DATA_CHANNELS * (
-          Math.floor(SOURCE_RASTER_PPD * pixelOffset.y) * DEGS_IN_CIRCLE * SOURCE_RASTER_PPD +
-          Math.floor(SOURCE_RASTER_PPD * pixelOffset.x)
-        );
+        const u = SOURCE_RASTER_PPD * pixelOffset.x;
+        const v = SOURCE_RASTER_PPD * pixelOffset.y;
         const destDataIdx = NUM_CANVAS_DATA_CHANNELS * (y * Canvas.width + x);
 
-        const pixelData = [
-          SourceRasterRawData[0][srcDataIdx    ],
-          SourceRasterRawData[0][srcDataIdx + 1],
-          SourceRasterRawData[0][srcDataIdx + 2],
-        ];
+        const pixelData = sampleBicubic(SourceRasterRawData[0], u, v);
 
         if (CurrentRasterStyle.isDayNight) {
           const distance = SunPosition.getDistanceTo(latLon.toRadians());
@@ -164,15 +195,16 @@ class MapCell {
           pixelData[1] *= dayRatio;
           pixelData[2] *= dayRatio;
           if (has2SourceImages && dayRatio < 1) {
-            pixelData[0] += SourceRasterRawData[1][srcDataIdx    ] * (1 - dayRatio);
-            pixelData[1] += SourceRasterRawData[1][srcDataIdx + 1] * (1 - dayRatio);
-            pixelData[2] += SourceRasterRawData[1][srcDataIdx + 2] * (1 - dayRatio);
+            const nightData = sampleBicubic(SourceRasterRawData[1], u, v);
+            pixelData[0] += nightData[0] * (1 - dayRatio);
+            pixelData[1] += nightData[1] * (1 - dayRatio);
+            pixelData[2] += nightData[2] * (1 - dayRatio);
           }
         }
 
-        CanvasData.data[destDataIdx    ] = pixelData[0];
-        CanvasData.data[destDataIdx + 1] = pixelData[1];
-        CanvasData.data[destDataIdx + 2] = pixelData[2];
+        CanvasData.data[destDataIdx    ] = Math.max(0, Math.min(MAX_COLOR_VALUE, pixelData[0]));
+        CanvasData.data[destDataIdx + 1] = Math.max(0, Math.min(MAX_COLOR_VALUE, pixelData[1]));
+        CanvasData.data[destDataIdx + 2] = Math.max(0, Math.min(MAX_COLOR_VALUE, pixelData[2]));
         CanvasData.data[destDataIdx + 3] = MAX_COLOR_VALUE;
       }
     }
