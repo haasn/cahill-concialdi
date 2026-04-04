@@ -157,6 +157,39 @@ const { data: srcData, info: srcInfo } =
 const SOURCE_PPD = srcInfo.width / DEGS_IN_CIRCLE; // 60 for 21600 px wide
 console.log(`${srcInfo.width}×${srcInfo.height} px, ${SOURCE_PPD} PPD`);
 
+// Catmull-Rom cubic kernel weight (a = -0.5)
+function cubicWeight(t) {
+  const at = Math.abs(t);
+  if (at <= 1) return 1.5*at*at*at - 2.5*at*at + 1;
+  if (at <= 2) return -0.5*at*at*at + 2.5*at*at - 4*at + 2;
+  return 0;
+}
+
+// Sample source raster with bicubic filtering.
+// u, v are continuous source coordinates in [0..width) × [0..height).
+// Wraps on x (longitude), clamps on y (latitude).
+function sampleBicubic(u, v) {
+  const ix = Math.floor(u);
+  const iy = Math.floor(v);
+  const tx = u - ix;
+  const ty = v - iy;
+  let r = 0, g = 0, b = 0;
+  for (let dy = -1; dy <= 2; dy++) {
+    const wy = cubicWeight(dy - ty);
+    const sy = Math.max(0, Math.min(srcInfo.height - 1, iy + dy));
+    for (let dx = -1; dx <= 2; dx++) {
+      const wx = cubicWeight(dx - tx);
+      const sx = ((ix + dx) % srcInfo.width + srcInfo.width) % srcInfo.width;
+      const idx = srcInfo.channels * (sy * srcInfo.width + sx);
+      const w = wx * wy;
+      r += w * srcData[idx    ];
+      g += w * srcData[idx + 1];
+      b += w * srcData[idx + 2];
+    }
+  }
+  return [r, g, b];
+}
+
 // ------------------------------------------------------------------
 // Canvas + ImageData setup
 
@@ -216,16 +249,15 @@ class MapCell {
         // Positive modulo for longitude: JS % returns negative for negative inputs,
         // which causes out-of-bounds reads when floating-point drift pushes lon < -180.
         const lonNorm = ((latLon.lon + DEGS_IN_CIRCLE / 2) % DEGS_IN_CIRCLE + DEGS_IN_CIRCLE) % DEGS_IN_CIRCLE;
-        const srcX = Math.min(Math.floor(SOURCE_PPD * lonNorm), srcInfo.width  - 1);
-        // Clamp latitude so polar drift never produces a negative or overflow row index.
-        const srcY = Math.max(0, Math.min(Math.floor(SOURCE_PPD * (DEGS_IN_CIRCLE / 4 - latLon.lat)), srcInfo.height - 1));
+        const u = SOURCE_PPD * lonNorm;
+        const v = SOURCE_PPD * (DEGS_IN_CIRCLE / 4 - latLon.lat);
 
-        const srcIdx = srcInfo.channels * (srcY * srcInfo.width + srcX);
-        const dstIdx = NUM_DEST_CHANNELS * (y   * CANVAS_WIDTH  + x  );
+        const [r, g, b] = sampleBicubic(u, v);
+        const dstIdx = NUM_DEST_CHANNELS * (y * CANVAS_WIDTH + x);
 
-        imageData.data[dstIdx    ] = srcData[srcIdx    ];
-        imageData.data[dstIdx + 1] = srcData[srcIdx + 1];
-        imageData.data[dstIdx + 2] = srcData[srcIdx + 2];
+        imageData.data[dstIdx    ] = Math.max(0, Math.min(MAX_COLOR_VALUE, r));
+        imageData.data[dstIdx + 1] = Math.max(0, Math.min(MAX_COLOR_VALUE, g));
+        imageData.data[dstIdx + 2] = Math.max(0, Math.min(MAX_COLOR_VALUE, b));
         imageData.data[dstIdx + 3] = MAX_COLOR_VALUE;
       }
     }
