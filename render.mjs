@@ -44,10 +44,10 @@ const MM_PER_INCH  = 25.4;
 // Convert millimetres → canvas pixels at the current DPI.
 // All size constants below are expressed in mm so they stay correct if DPI changes.
 const mm = v => v * DPI / MM_PER_INCH;
-//const WIDTH_MM     = 1682;   // DIN 2A0 landscape
-//const HEIGHT_MM    = 1189;
-const WIDTH_MM     = 1189;   // DIN A0 landscape
-const HEIGHT_MM    = 841;
+const WIDTH_MM     = 1682;   // DIN 2A0 landscape
+const HEIGHT_MM    = 1189;
+//const WIDTH_MM     = 1189;   // DIN A0 landscape
+//const HEIGHT_MM    = 841;
 
 const CANVAS_WIDTH  = Math.round(WIDTH_MM  / MM_PER_INCH * DPI);
 const CANVAS_HEIGHT = Math.round(HEIGHT_MM / MM_PER_INCH * DPI);
@@ -60,7 +60,7 @@ const OUTPUT_FILE = 'cahill-concialdi-a0.png';
 const GRATICULE_DEGREES = 10;
 
 const GRATICULE_COLOR           = 'white';
-const GRATICULE_LINE_WIDTH       = mm(0.15);
+const GRATICULE_LINE_WIDTH       = mm(0.2);
 const GRATICULE_LINE_WIDTH_MAJOR = mm(0.35); // equator + prime meridian
 
 const NUM_DEST_CHANNELS = 4; // RGBA in canvas ImageData
@@ -80,7 +80,7 @@ const CITY_SHP = '../ne_10m_populated_places.shp';
 // Dots are drawn for ALL cities in the shapefile regardless of population.
 // Their radius is log-scaled over the full population range of the dataset.
 const CITY_DOT_RADIUS_MIN = mm(0.085);  // mm — for the smallest cities
-const CITY_DOT_RADIUS_MAX = mm(1.0);    // mm — for the largest cities (~35 M)
+const CITY_DOT_RADIUS_MAX = mm(1.5);    // mm — for the largest cities (~35 M)
 const CITY_DOT_COLOR      = 'rgba(0, 0, 0, 0.50)';
 
 // --- Label placement ---
@@ -90,16 +90,16 @@ const CITY_MIN_POPULATION = 10_000;
 
 // Maximum displacement of a label's anchor from its dot edge.
 // Labels with no clean candidate position within this radius are culled.
-const CITY_LABEL_MAX_DISP = mm(3.4);
+const CITY_LABEL_MAX_DISP = mm(5);
 
 // Minimum gap between the dot edge and the nearest edge of its label.
-const CITY_LABEL_GAP = mm(0.85);
+const CITY_LABEL_GAP = mm(0.8);
 
 // Padding added to every side of a label's bounding box before overlap testing.
 // Scales INVERSELY with log-population: small cities need more breathing room
 // to justify their presence; large cities can be packed tightly.
-const CITY_LABEL_PADDING_MAX = mm(1.35);  // at CITY_MIN_POPULATION
-const CITY_LABEL_PADDING_MIN = mm(0.085); // at max population (~35 M)
+const CITY_LABEL_PADDING_MAX = mm(2.0); // at CITY_MIN_POPULATION
+const CITY_LABEL_PADDING_MIN = mm(0.1); // at max population (~35 M)
 
 // Candidate anchor angles tried for each label, at 15° increments.
 // 0° = east (right of dot); alternates ±offset so nearby angles are tried
@@ -115,7 +115,7 @@ const CITY_LABEL_DIST_STEPS = 3;
 // When scoring candidate positions, only consider already-placed labels
 // whose bbox centre falls within this radius. Labels farther away
 // are irrelevant to local crowding and excluding them keeps scoring fast.
-const CITY_LABEL_SCORE_RADIUS = mm(3.4);
+const CITY_LABEL_SCORE_RADIUS = mm(5);
 
 // Dot-radius threshold above which dots use a radial gradient + outline
 // instead of a plain filled circle. Below this the dot is too small to matter.
@@ -124,18 +124,18 @@ const CITY_DOT_GRADIENT_THRESHOLD = mm(0.5);
 // --- Font ---
 // 0.75 mm ≈ 9 pt at 300 DPI — legible on photo paper for isolated labels.
 const CITY_FONT_FAMILY   = 'DejaVu Sans';
-const CITY_FONT_SIZE_MIN = mm(0.75);  // at CITY_MIN_POPULATION
-const CITY_FONT_SIZE_MAX = mm(2.7);   // at ~35 M population
+const CITY_FONT_SIZE_MIN = mm(0.5);  // at CITY_MIN_POPULATION
+const CITY_FONT_SIZE_MAX = mm(3.0);  // at ~35 M population
 
 // Complex labels (dots at or above CITY_DOT_GRADIENT_THRESHOLD): white fill + dark halo
 const CITY_LABEL_COLOR  = 'rgba(255, 255, 255, 0.92)';
-const CITY_HALO_WIDTH   = mm(0.17);  // half-width of dark outline; set to 0 to disable
+const CITY_HALO_WIDTH   = mm(0.3);  // half-width of dark outline; set to 0 to disable
 const CITY_HALO_COLOR   = 'rgba(0, 0, 0, 0.65)';
 // Simple labels (dots below CITY_DOT_GRADIENT_THRESHOLD): plain fill, no halo
 const CITY_LABEL_COLOR_SIMPLE = 'rgba(0, 0, 0, 0.92)';
 
 // Leader line connecting each label to its dot
-const CITY_LEADER_WIDTH = mm(0.085);
+const CITY_LEADER_WIDTH = mm(0.1);
 const CITY_LEADER_COLOR = 'rgba(0, 0, 0, 1.0)';
 
 // ================================================================
