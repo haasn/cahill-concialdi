@@ -59,8 +59,9 @@ const OUTPUT_FILE = 'cahill-concialdi-a0.png';
 // Set to null to disable.
 const GRATICULE_DEGREES = 10;
 
-const GRATICULE_COLOR     = 'white';
-const GRATICULE_LINE_WIDTH = mm(0.15);
+const GRATICULE_COLOR           = 'white';
+const GRATICULE_LINE_WIDTH       = mm(0.15);
+const GRATICULE_LINE_WIDTH_MAJOR = mm(0.35); // equator + prime meridian
 
 const NUM_DEST_CHANNELS = 4; // RGBA in canvas ImageData
 
@@ -467,11 +468,10 @@ function drawGraticule() {
   ctx.closePath();
   ctx.clip();
 
-  ctx.globalAlpha  = 0.5;
-  ctx.strokeStyle  = GRATICULE_COLOR;
-  ctx.lineWidth    = GRATICULE_LINE_WIDTH;
-  ctx.lineJoin     = 'round';
-  ctx.lineCap      = 'round';
+  ctx.globalAlpha = 0.5;
+  ctx.strokeStyle = GRATICULE_COLOR;
+  ctx.lineJoin    = 'round';
+  ctx.lineCap     = 'round';
 
   const pt = (lat, lon, idx) =>
     project(new LatLon(lat, lon), idx)
@@ -479,46 +479,57 @@ function drawGraticule() {
       .translate(viewOrigin)
       .scale(canvasPerSvg);
 
-  ctx.beginPath();
+  // Build a path for either the major lines (equator + prime meridian) or all others.
+  const buildPath = (major) => {
+    ctx.beginPath();
+    MAP_AREAS.forEach((area, idx) => {
+      let endLon = area.neCorner.lon;
+      if (area.hasAntimeridian) endLon += DEGS_IN_CIRCLE;
 
-  MAP_AREAS.forEach((area, idx) => {
-    let endLon = area.neCorner.lon;
-    if (area.hasAntimeridian) endLon += DEGS_IN_CIRCLE;
-
-    // Latitude lines
-    for (
-      let lat  = Math.ceil (area.swCorner.lat / GRATICULE_DEGREES) * GRATICULE_DEGREES;
-      lat     <= Math.floor(area.neCorner.lat / GRATICULE_DEGREES) * GRATICULE_DEGREES;
-      lat     += GRATICULE_DEGREES
-    ) {
-      const p0 = pt(lat, area.swCorner.lon, idx);
-      ctx.moveTo(p0.x, p0.y);
-      for (let lon = area.swCorner.lon + 1; lon <= endLon; lon++) {
-        const p = pt(lat, lon, idx);
-        ctx.lineTo(p.x, p.y);
+      // Latitude lines
+      for (
+        let lat  = Math.ceil (area.swCorner.lat / GRATICULE_DEGREES) * GRATICULE_DEGREES;
+        lat     <= Math.floor(area.neCorner.lat / GRATICULE_DEGREES) * GRATICULE_DEGREES;
+        lat     += GRATICULE_DEGREES
+      ) {
+        if ((lat === 0) !== major) continue;
+        const p0 = pt(lat, area.swCorner.lon, idx);
+        ctx.moveTo(p0.x, p0.y);
+        for (let lon = area.swCorner.lon + 1; lon <= endLon; lon++) {
+          const p = pt(lat, lon, idx);
+          ctx.lineTo(p.x, p.y);
+        }
+        if (area.swCorner.lon % 1 !== endLon % 1) {
+          const p = pt(lat, endLon, idx);
+          ctx.lineTo(p.x, p.y);
+        }
       }
-      if (area.swCorner.lon % 1 !== endLon % 1) {
-        const p = pt(lat, endLon, idx);
-        ctx.lineTo(p.x, p.y);
-      }
-    }
 
-    // Longitude lines
-    for (
-      let lon  = Math.ceil (area.swCorner.lon / GRATICULE_DEGREES) * GRATICULE_DEGREES;
-      lon     <= Math.floor(endLon            / GRATICULE_DEGREES) * GRATICULE_DEGREES;
-      lon     += GRATICULE_DEGREES
-    ) {
-      const p0 = pt(area.swCorner.lat, lon, idx);
-      ctx.moveTo(p0.x, p0.y);
-      for (let lat = area.swCorner.lat + 1; lat <= area.neCorner.lat; lat++) {
-        const p = pt(lat, lon, idx);
-        ctx.lineTo(p.x, p.y);
+      // Longitude lines
+      for (
+        let lon  = Math.ceil (area.swCorner.lon / GRATICULE_DEGREES) * GRATICULE_DEGREES;
+        lon     <= Math.floor(endLon            / GRATICULE_DEGREES) * GRATICULE_DEGREES;
+        lon     += GRATICULE_DEGREES
+      ) {
+        if ((lon === 0) !== major) continue;
+        const p0 = pt(area.swCorner.lat, lon, idx);
+        ctx.moveTo(p0.x, p0.y);
+        for (let lat = area.swCorner.lat + 1; lat <= area.neCorner.lat; lat++) {
+          const p = pt(lat, lon, idx);
+          ctx.lineTo(p.x, p.y);
+        }
       }
-    }
-  });
+    });
+  };
 
+  buildPath(false);
+  ctx.lineWidth = GRATICULE_LINE_WIDTH;
   ctx.stroke();
+
+  buildPath(true);
+  ctx.lineWidth = GRATICULE_LINE_WIDTH_MAJOR;
+  ctx.stroke();
+
   ctx.restore();
 }
 
