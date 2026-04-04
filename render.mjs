@@ -117,11 +117,6 @@ const CITY_DOT_GRADIENT_THRESHOLD = mm(0.5);
 const CITY_FONT_FAMILY   = 'DejaVu Sans';
 const CITY_FONT_SIZE_MIN = mm(0.75);  // at CITY_MIN_POPULATION
 const CITY_FONT_SIZE_MAX = mm(2.7);   // at ~35 M population
-// CJK glyphs are visually larger than Latin at the same point size and need
-// no outline (the fine strokes fill in). Both effects are applied when the
-// resolved font is 'Noto Sans CJK'.
-const CITY_CJK_FONT       = 'Noto Sans CJK';  // sentinel — matches LANG_FONT entries
-const CITY_CJK_FONT_BONUS = mm(0.5);           // added on top of the normal size scale
 
 // Complex labels (dots at or above CITY_DOT_GRADIENT_THRESHOLD): white fill + dark halo
 const CITY_LABEL_COLOR  = 'rgba(255, 255, 255, 0.92)';
@@ -459,9 +454,7 @@ async function drawCityLabels() {
     const dotR   = CITY_DOT_RADIUS_MIN + t * (CITY_DOT_RADIUS_MAX - CITY_DOT_RADIUS_MIN);
     const label  = getCityLabel(props);
     const font   = getCityFont(props);
-    const cjk    = font === CITY_CJK_FONT;
-    const fontSize = Math.round(CITY_FONT_SIZE_MIN + t * (CITY_FONT_SIZE_MAX - CITY_FONT_SIZE_MIN))
-                   + (cjk ? CITY_CJK_FONT_BONUS : 0);
+    const fontSize = Math.round(CITY_FONT_SIZE_MIN + t * (CITY_FONT_SIZE_MAX - CITY_FONT_SIZE_MIN));
 
     ctx.font = `${fontSize}px ${font}`;
     const labelW = ctx.measureText(label).width;
@@ -471,7 +464,7 @@ async function drawCityLabels() {
     const padding = CITY_LABEL_PADDING_MAX - t * (CITY_LABEL_PADDING_MAX - CITY_LABEL_PADDING_MIN);
 
     const rtl = RTL_LANGS.has(COUNTRY_LANG[props.ADM0_A3]);
-    labelCandidates.push({ pt, dotR, pop, t, fontSize, font, cjk, label, labelW, labelH: fontSize, padding, rtl });
+    labelCandidates.push({ pt, dotR, pop, t, fontSize, font, label, labelW, labelH: fontSize, padding, rtl });
   }
 
   // --- Phase 2: greedy label placement in descending population order ---
@@ -611,9 +604,8 @@ async function drawCityLabels() {
     const tx = city.rtl ? lx + city.labelW : lx;
 
     if (city.dotR >= CITY_DOT_GRADIENT_THRESHOLD) {
-      // Complex label: white fill + dark halo (halo suppressed for CJK —
-      // the fine strokes fill in and become illegible with an outline).
-      if (CITY_HALO_WIDTH > 0 && !city.cjk) {
+      // Complex label: white fill + dark halo
+      if (CITY_HALO_WIDTH > 0) {
         ctx.lineWidth   = CITY_HALO_WIDTH * 2;
         ctx.strokeStyle = CITY_HALO_COLOR;
         ctx.lineJoin    = 'round';
